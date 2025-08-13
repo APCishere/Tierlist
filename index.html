@@ -1,4 +1,4 @@
-<!-- Version 1.6 — Save/Load + Crop + Add Categories + Island Panel -->
+<!-- Version 1.6.1 — Save/Load + Crop + Add Categories + Island Panel -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -127,4 +127,85 @@ function createImageWrapper(src){
   del.addEventListener("click", e=>{e.stopPropagation(); wrap.remove(); if(selectedWrapper===wrap) selectedWrapper=null; saveData();});
   wrap.appendChild(img); wrap.appendChild(del);
   wrap.addEventListener("click", ()=>{
-    if(wrap.closest(".tier") && !wrap.closest("#unranked")){ document.getElementBy
+    if(wrap.closest(".tier") && !wrap.closest("#unranked")){ document.getElementById("unranked").appendChild(wrap); saveData(); }
+    else{ selectWrapper(selectedWrapper===wrap?null:wrap); }
+  });
+  return wrap;
+}
+
+function addToUnranked(src){ 
+  let imgObj=new Image(); imgObj.src=src;
+  imgObj.onload=()=>{
+    let w=imgObj.width, h=imgObj.height;
+    if(Math.abs(w-h)/Math.max(w,h)>0.2){ cropQueue.push(src); if(!cropping) showCrop(); }
+    else{ document.getElementById("unranked").appendChild(createImageWrapper(src)); saveData(); }
+  }
+}
+
+function showCrop(){
+  if(cropQueue.length==0){ cropping=false; return; }
+  cropping=true;
+  const src=cropQueue.shift();
+  const cropOverlay=document.getElementById("cropOverlay");
+  const cropImage=document.getElementById("cropImage");
+  cropOverlay.style.display="flex"; cropImage.src=src;
+}
+document.getElementById("cropButton").addEventListener("click", ()=>{
+  let src=document.getElementById("cropImage").src;
+  document.getElementById("unranked").appendChild(createImageWrapper(src)); saveData();
+  document.getElementById("cropOverlay").style.display="none";
+  if(cropQueue.length>0) showCrop(); else cropping=false;
+});
+
+document.getElementById("imageUpload").addEventListener("change", e=>{
+  Array.from(e.target.files||[]).forEach(file=>{
+    if(!file.type.startsWith("image/")) return;
+    const reader=new FileReader();
+    reader.onload=ev=>addToUnranked(ev.target.result);
+    reader.readAsDataURL(file);
+  });
+});
+
+// ---------------- SAVE / LOAD ----------------
+function saveTierlist(){ 
+  let data={ title:document.getElementById("tierListTitle").innerText, tiers:[], unranked:[] };
+  document.querySelectorAll(".tier").forEach(t=>{
+    data.tiers.push({score:t.dataset.score, imgs:Array.from(t.querySelectorAll("img")).map(i=>i.src)});
+  });
+  data.unranked=Array.from(document.getElementById("unranked").querySelectorAll("img")).map(i=>i.src);
+  let blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  let a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="tierlist.json"; a.click();
+}
+document.getElementById("saveBtn").addEventListener("click",saveTierlist);
+
+document.getElementById("loadBtn").addEventListener("click",()=>document.getElementById("fileInput").click());
+document.getElementById("fileInput").addEventListener("change", e=>{
+  let file=e.target.files[0]; if(!file) return;
+  let reader=new FileReader();
+  reader.onload=function(ev){
+    let data=JSON.parse(ev.target.result);
+    document.getElementById("tierListTitle").innerText=data.title||"My Tier List";
+    document.querySelectorAll(".tier").forEach(t=>t.innerHTML="");
+    data.tiers?.forEach((tdata, idx)=>{
+      let tier=document.querySelectorAll(".tier")[idx];
+      (tdata.imgs||[]).forEach(src=>tier.appendChild(createImageWrapper(src)));
+    });
+    document.getElementById("unranked").innerHTML="";
+    (data.unranked||[]).forEach(src=>addToUnranked(src));
+  };
+  reader.readAsText(file);
+});
+
+// ---------------- ADD CATEGORY PANEL ----------------
+const colors=["#00ff00","#55ff00","#ccff00","#ffff00","#ff5500","#ff0000","#990000","#660066","#330033","#000000"];
+const bgContainer=document.getElementById("bgColors");
+colors.forEach(c=>{ let d=document.createElement("div"); d.className="color-option"; d.style.background=c; d.addEventListener("click",()=>{document.querySelectorAll(".color-option").forEach(el=>el.style.border="2px solid #555"); d.style.border="3px solid #00f"; selectedColor=c;}); bgContainer.appendChild(d); });
+let selectedColor=colors[0];
+document.getElementById("addCatBtn").addEventListener("click",()=>{ 
+  const panel=document.getElementById("addCategoryPanel"); 
+  panel.style.display=(panel.style.display==="flex")?"none":"flex"; panel.style.flexDirection="column"; 
+});
+document.getElementById("createCategoryBtn").addEventListener("click",()=>{
+  const name=document.getElementById("newCategoryName").value||"New Tier";
+  createCustomTier(name,selectedColor);
+  document.getElementById
