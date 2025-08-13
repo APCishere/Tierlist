@@ -1,4 +1,4 @@
-<!-- Version 1.7 — Core Functionality Rebuilt -->
+<!-- Version 1.7.1 — Patch: Black text outline in categories -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,7 +9,19 @@
 body{margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4;}
 h1{text-align:center;margin:10px;}
 .tier-container{display:flex;align-items:center;flex-wrap:wrap;margin:5px 10px;}
-.label{min-width:120px;padding:10px 15px;margin-right:10px;text-align:center;font-weight:bold;border-radius:12px;color:#fff;font-size:16px;box-shadow:2px 2px 8px rgba(0,0,0,.3);cursor:pointer;}
+.label{
+    min-width:120px;
+    padding:10px 15px;
+    margin-right:10px;
+    text-align:center;
+    font-weight:bold;
+    border-radius:12px;
+    color:#fff;
+    font-size:16px;
+    box-shadow:2px 2px 8px rgba(0,0,0,.3);
+    cursor:pointer;
+    text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; /* Black outline */
+}
 .tier{display:flex;flex-wrap:wrap;gap:5px;padding:10px;min-height:80px;border-radius:12px;margin:5px 0;background:#fff;box-shadow:1px 1px 6px rgba(0,0,0,.2);flex:1;cursor:pointer;}
 .unranked{display:flex;flex-wrap:wrap;gap:5px;padding:10px;min-height:80px;background:#ddd;border:2px dashed #999;margin:5px 10px 20px;border-radius:12px;}
 .img-wrapper{position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;cursor:pointer;}
@@ -84,7 +96,6 @@ function createTier(score,name){
   container.appendChild(label); container.appendChild(tier);
   document.getElementById("tiers").appendChild(container);
 
-  // Click to place
   [label,tier].forEach(el=>{
     el.addEventListener("click",()=>{if(selectedWrapper){el.closest(".tier-container").querySelector(".tier").appendChild(selectedWrapper); selectedWrapper.classList.remove("selected"); selectedWrapper=null; saveData();}});
   });
@@ -148,7 +159,6 @@ document.getElementById("fileInput").addEventListener("change",e=>{
 // ---------- ISLAND PANEL ----------
 const island=document.getElementById("island");
 const header=document.getElementById("islandHeader");
-const content=document.getElementById("islandContent");
 header.addEventListener("click",()=>island.classList.toggle("expanded"));
 
 // ---------- ADD CATEGORY PANEL ----------
@@ -163,6 +173,8 @@ document.getElementById("createCategoryBtn").addEventListener("click",()=>{
   createTier(Date.now(),name); document.getElementById("newCategoryName").value="";
 });
 </script>
+
+<footer style="position:fixed;right:10px;bottom:10px;background:rgba(100,100,100,.55);color:#fff;font-size:12px;padding:4px 8px;border-radius:8px;opacity:.85;z-index:100000;">Version 1.7.1 — Patch: Black Outline</footer>
 
 </body>
 </html>
