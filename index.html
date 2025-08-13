@@ -5,17 +5,91 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tier List</title>
 <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
-    h1 { text-align: center; margin: 10px; }
-    .tier { display: flex; flex-wrap: wrap; padding: 5px; min-height: 80px; border: 2px solid #333; margin: 5px; border-radius: 8px; }
-    .tier img, .unranked img { width: 60px; height: 60px; object-fit: cover; margin: 5px; cursor: grab; border-radius: 4px; }
-    .unranked { display: flex; flex-wrap: wrap; padding: 5px; min-height: 80px; background: #ddd; border: 2px dashed #999; margin: 5px; border-radius: 8px; }
-    .label { width: 70px; text-align: center; font-weight: bold; padding: 5px; border-radius: 6px; }
-    .tier-container { display: flex; align-items: center; flex-wrap: wrap; }
-    input[type="file"] { margin: 10px; }
+    body { 
+        font-family: Arial, sans-serif; 
+        margin: 0; 
+        padding: 0; 
+        background: #f4f4f4; 
+    }
+    h1 { 
+        text-align: center; 
+        margin: 10px; 
+    }
+    .tier-container { 
+        display: flex; 
+        align-items: center; 
+        flex-wrap: wrap; 
+        margin: 5px 10px;
+    }
+    .label { 
+        min-width: 120px; 
+        padding: 10px 15px; 
+        text-align: center; 
+        font-weight: bold; 
+        border-radius: 12px; 
+        color: white; 
+        font-size: 16px; 
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.3); 
+        transition: transform 0.2s, box-shadow 0.2s; 
+        margin-right: 10px;
+    }
+    .label:hover { 
+        transform: scale(1.05); 
+        box-shadow: 4px 4px 12px rgba(0,0,0,0.5); 
+    }
+    .tier { 
+        display: flex; 
+        flex-wrap: wrap; 
+        padding: 10px; 
+        min-height: 80px; 
+        border: 2px solid #333; 
+        border-radius: 12px; 
+        margin: 5px 0; 
+        background: #fff; 
+        box-shadow: 1px 1px 6px rgba(0,0,0,0.2); 
+        transition: box-shadow 0.2s; 
+        flex: 1;
+    }
+    .tier:hover {
+        box-shadow: 2px 2px 12px rgba(0,0,0,0.35);
+    }
+    .tier img, .unranked img { 
+        width: 60px; 
+        height: 60px; 
+        object-fit: cover; 
+        margin: 5px; 
+        cursor: grab; 
+        border-radius: 6px; 
+        transition: transform 0.2s; 
+    }
+    .tier img:hover, .unranked img:hover {
+        transform: scale(1.1);
+    }
+    .unranked { 
+        display: flex; 
+        flex-wrap: wrap; 
+        padding: 10px; 
+        min-height: 80px; 
+        background: #e0e0e0; 
+        border: 2px dashed #999; 
+        margin: 5px 10px; 
+        border-radius: 12px; 
+        box-shadow: inset 1px 1px 5px rgba(0,0,0,0.1);
+    }
+    input[type="file"] { 
+        margin: 10px; 
+        display: block;
+    }
     @media (max-width: 600px) {
-        .tier img, .unranked img { width: 50px; height: 50px; }
-        .label { width: 60px; font-size: 14px; }
+        .tier img, .unranked img { 
+            width: 50px; 
+            height: 50px; 
+        }
+        .label { 
+            min-width: 90px; 
+            font-size: 14px; 
+            padding: 8px 12px; 
+        }
     }
 </style>
 </head>
@@ -36,25 +110,31 @@ const tierData = [
 ];
 
 function scoreToColor(score) {
-    if (score >= 20) return "rgb(255,0,0)";
-    if (score >= 15) return "rgb(255,255,0)";
-    if (score >= 8) return "rgb(0,128,0)";
-    return "rgb(100,100,100)";
+    if (score >= 20) return "linear-gradient(45deg, #ff0000, #ff5555)";
+    if (score >= 17) return "linear-gradient(45deg, #ff9900, #ffcc00)";
+    if (score >= 15) return "linear-gradient(45deg, #ffff00, #ffff66)";
+    if (score >= 12) return "linear-gradient(45deg, #00cc00, #00ff00)";
+    if (score >= 8) return "linear-gradient(45deg, #0099ff, #00ccff)";
+    return "linear-gradient(45deg, #555555, #999999)";
 }
 
 function createTier(score) {
     let container = document.createElement("div");
     container.className = "tier-container";
+
     let label = document.createElement("div");
     label.className = "label";
     label.style.background = scoreToColor(score);
     label.textContent = score;
+
     let tier = document.createElement("div");
     tier.className = "tier";
     tier.dataset.score = score;
+
     container.appendChild(label);
     container.appendChild(tier);
     document.getElementById("tiers").appendChild(container);
+
     enableDrop(tier);
 }
 
