@@ -1,113 +1,142 @@
-<!--
-Tier List Site
-Version: 1.5
-Theme: Click Place
--->
-
+<!-- Version 1.5 — Save/Load -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tier List</title>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
-  h1 { text-align: center; margin: 10px; }
-  .tier-container { display: flex; align-items: center; flex-wrap: wrap; margin: 5px 10px; }
-  .label { min-width: 120px; padding: 10px 15px; margin-right: 10px; text-align: center; font-weight: bold; border-radius: 12px; color: #fff; font-size: 16px; box-shadow: 2px 2px 8px rgba(0,0,0,.3); cursor: pointer; }
-  .tier { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; min-height: 80px; border: 2px solid #333; border-radius: 12px; margin: 5px 0; background: #fff; box-shadow: 1px 1px 6px rgba(0,0,0,.2); flex: 1; cursor: pointer; }
-  .unranked { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; min-height: 80px; background: #e0e0e0; border: 2px dashed #999; margin: 5px 10px 20px; border-radius: 12px; }
-  input[type="file"] { margin: 10px; display: block; }
-
-  .img-wrapper { position: relative; display: inline-block; width: 60px; height: 60px; border-radius: 6px; overflow: hidden; cursor: pointer; }
-  .img-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform .15s; }
-  .img-wrapper:hover img { transform: scale(1.06); }
-  .img-wrapper.selected { outline: 3px solid #00e0ff; outline-offset: 2px; }
-  .delete-btn { position: absolute; top: -6px; right: -6px; background: rgba(255,0,0,.9); color: #fff; border: 0; border-radius: 50%; width: 20px; height: 20px; line-height: 20px; font-size: 14px; cursor: pointer; }
-
-  /* Crop modal */
-  #cropModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); justify-content: center; align-items: center; z-index: 9999; padding: 10px; }
-  #cropBox { background: #fff; padding: 12px; border-radius: 10px; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; gap: 8px; }
-  #cropStatus { font-weight: bold; }
-  #cropCanvas { max-width: 80vw; max-height: 70vh; cursor: crosshair; background: #000; }
-  #cropControls { display: flex; justify-content: flex-end; gap: 8px; }
-  #cropControls button { padding: 6px 10px; }
-
-  /* Footer (bottom-right, slightly visible) */
-  #footer {
-    position: fixed; right: 10px; bottom: 10px;
-    background: rgba(0,0,0,.55); color: #fff;
-    font-size: 12px; padding: 4px 8px; border-radius: 8px;
-    z-index: 100000; opacity: 0.75; pointer-events: none;
-    box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  body { margin: 0; font-family: sans-serif; background: #222; color: #fff; }
+  .tier-container { display: flex; flex-direction: column; gap: 10px; padding: 10px; }
+  .tier { display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 8px; min-height: 60px; }
+  .tier-label { width: 50px; text-align: center; font-weight: bold; }
+  .tier-images { display: flex; flex-wrap: wrap; gap: 5px; }
+  .uncategorized { background: rgba(50,50,50,0.5); min-height: 100px; padding: 10px; border-radius: 8px; }
+  img { max-height: 60px; border-radius: 5px; cursor: pointer; }
+  img.selected { outline: 3px solid yellow; }
+  footer {
+    position: fixed; bottom: 10px; right: 10px;
+    background: rgba(0,0,0,0.5); padding: 6px 12px;
+    border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    font-size: 0.9em; display: flex; align-items: center; gap: 8px;
   }
-
-  @media (max-width: 600px){
-    .label{ min-width: 90px; font-size: 14px; padding: 8px 12px; }
-    .img-wrapper{ width: 50px; height: 50px; }
+  .menu {
+    background: rgba(30,30,30,0.8);
+    border-radius: 10px; padding: 4px 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    position: relative;
   }
+  .menu button {
+    background: none; border: none; color: white; cursor: pointer;
+    padding: 4px 8px; font-size: 0.85em; display: block; text-align: left;
+    width: 100%;
+  }
+  .menu-content {
+    display: none; position: absolute; bottom: 100%; right: 0;
+    background: rgba(30,30,30,0.95); border-radius: 10px;
+    overflow: hidden; min-width: 120px;
+  }
+  .menu:hover .menu-content { display: block; }
 </style>
 </head>
 <body>
 
-<h1 id="tierListTitle" contenteditable="true">My Tier List</h1>
-<input type="file" id="imageUpload" accept="image/*" multiple>
-
-<div id="tiers"></div>
-
-<h3 style="margin-left:10px;">Unranked</h3>
-<div class="unranked" id="unranked"></div>
-
-<!-- Crop Modal -->
-<div id="cropModal">
-  <div id="cropBox">
-    <div id="cropStatus">Editing 0 of 0</div>
-    <canvas id="cropCanvas"></canvas>
-    <div id="cropControls">
-      <button id="cancelCrop">Cancel</button>
-      <button id="confirmCrop">OK</button>
-    </div>
-  </div>
+<div class="tier-container" id="tiers">
+  <div class="tier"><div class="tier-label">20</div><div class="tier-images"></div></div>
+  <div class="tier"><div class="tier-label">17</div><div class="tier-images"></div></div>
+  <div class="tier"><div class="tier-label">15</div><div class="tier-images"></div></div>
+  <div class="tier"><div class="tier-label">12</div><div class="tier-images"></div></div>
+  <div class="uncategorized" id="uncategorized"></div>
 </div>
 
-<!-- Footer -->
-<div id="footer">Version 1.5 — Click Place</div>
+<footer>
+  <div>Version 1.5 — Save/Load</div>
+  <div class="menu">
+    ☰
+    <div class="menu-content">
+      <button onclick="saveTierlist()">Save Tierlist</button>
+      <button onclick="document.getElementById('fileInput').click()">Load Tierlist</button>
+    </div>
+  </div>
+</footer>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadTierlist(event)">
 
 <script>
-/* ---------- TIERS ---------- */
-const tierScores = [20, 18, 15, 12, 8, 0, -500]; // added 18, kept others
-function scoreToColor(score){
-  if (score >= 20) return "linear-gradient(45deg,#ff0000,#ff5555)";
-  if (score >= 18) return "linear-gradient(45deg,#ff6a00,#ff9a00)";
-  if (score >= 15) return "linear-gradient(45deg,#ffff00,#ffff66)";
-  if (score >= 12) return "linear-gradient(45deg,#00cc00,#00ff00)";
-  if (score >= 8)  return "linear-gradient(45deg,#0099ff,#00ccff)";
-  return "linear-gradient(45deg,#555,#999)";
+let selectedImage = null;
+
+document.addEventListener('click', e => {
+  if (e.target.tagName === 'IMG') {
+    let img = e.target;
+    if (img.classList.contains('selected')) {
+      img.classList.remove('selected');
+      selectedImage = null;
+    } else if (img.closest('.tier') && !img.closest('.uncategorized')) {
+      document.getElementById('uncategorized').appendChild(img);
+    } else {
+      document.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
+      img.classList.add('selected');
+      selectedImage = img;
+    }
+  } else if (selectedImage && e.target.closest('.tier')) {
+    e.target.closest('.tier').querySelector('.tier-images').appendChild(selectedImage);
+    selectedImage.classList.remove('selected');
+    selectedImage = null;
+  }
+});
+
+function saveTierlist() {
+  let data = { tiers: [], uncategorized: [], name: document.title };
+  document.querySelectorAll('.tier').forEach(tier => {
+    let images = [];
+    tier.querySelectorAll('img').forEach(img => {
+      images.push({ src: img.src });
+    });
+    data.tiers.push({ label: tier.querySelector('.tier-label').textContent, images });
+  });
+  let uncategorizedImgs = [];
+  document.getElementById('uncategorized').querySelectorAll('img').forEach(img => {
+    uncategorizedImgs.push({ src: img.src });
+  });
+  data.uncategorized = uncategorizedImgs;
+
+  let blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tierlist.json';
+  a.click();
 }
 
-function createTier(score){
-  const container = document.createElement('div');
-  container.className = 'tier-container';
+function loadTierlist(event) {
+  let file = event.target.files[0];
+  if (!file) return;
+  let reader = new FileReader();
+  reader.onload = function(e) {
+    let data = JSON.parse(e.target.result);
+    document.title = data.name || 'Tier List';
+    document.querySelectorAll('.tier').forEach(tier => tier.querySelector('.tier-images').innerHTML = '');
+    document.getElementById('uncategorized').innerHTML = '';
 
-  const label = document.createElement('div');
-  label.className = 'label';
-  label.style.background = scoreToColor(score);
-  label.textContent = score;
-
-  const tier = document.createElement('div');
-  tier.className = 'tier';
-  tier.dataset.score = score;
-
-  // clicking either label or tier places selected image here
-  const placeHere = ()=> {
-    if(!selectedWrapper) return;
-    tier.appendChild(selectedWrapper);
-    selectWrapper(null);
-    saveData();
+    data.tiers.forEach((tierData, idx) => {
+      let tier = document.querySelectorAll('.tier')[idx];
+      tierData.images.forEach(imgData => {
+        let img = document.createElement('img');
+        img.src = imgData.src;
+        tier.querySelector('.tier-images').appendChild(img);
+      });
+    });
+    data.uncategorized.forEach(imgData => {
+      let img = document.createElement('img');
+      img.src = imgData.src;
+      document.getElementById('uncategorized').appendChild(img);
+    });
   };
-  label.addEventListener('click', placeHere);
-  tier.addEventListener('click', placeHere);
+  reader.readAsText(file);
+}
+</script>
 
+</body>
+</html>
   container.appendChild(label);
   container.appendChild(tier);
   document.getElementById('tiers').appendChild(container);
