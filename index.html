@@ -10,24 +10,20 @@
     .tier-container { display: flex; align-items: center; flex-wrap: wrap; margin: 5px 10px; }
     .label { min-width: 120px; padding: 10px 15px; text-align: center; font-weight: bold; border-radius: 12px; color: white; font-size: 16px; box-shadow: 2px 2px 8px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s; margin-right: 10px; }
     .label:hover { transform: scale(1.05); box-shadow: 4px 4px 12px rgba(0,0,0,0.5); }
-    .tier { display: flex; flex-wrap: wrap; padding: 10px; min-height: 80px; border: 2px solid #333; border-radius: 12px; margin: 5px 0; background: #fff; box-shadow: 1px 1px 6px rgba(0,0,0,0.2); transition: box-shadow 0.2s; flex: 1; }
-    .tier:hover { box-shadow: 2px 2px 12px rgba(0,0,0,0.35); }
-    .tier img, .unranked img { width: 60px; height: 60px; object-fit: cover; margin: 5px; cursor: grab; border-radius: 6px; transition: transform 0.2s; }
-    .tier img:hover, .unranked img:hover { transform: scale(1.1); }
-    .unranked { display: flex; flex-wrap: wrap; padding: 10px; min-height: 80px; background: #e0e0e0; border: 2px dashed #999; margin: 5px 10px; border-radius: 12px; box-shadow: inset 1px 1px 5px rgba(0,0,0,0.1); }
+    .tier { display: flex; flex-wrap: wrap; padding: 10px; min-height: 80px; border: 2px solid #333; border-radius: 12px; margin: 5px 0; background: #fff; box-shadow: 1px 1px 6px rgba(0,0,0,0.2); flex: 1; }
+    .tier img, .unranked img { width: 60px; height: 60px; object-fit: cover; margin: 5px; border-radius: 6px; }
+    .unranked { display: flex; flex-wrap: wrap; padding: 10px; min-height: 80px; background: #e0e0e0; border: 2px dashed #999; margin: 5px 10px; border-radius: 12px; }
     input[type="file"] { margin: 10px; display: block; }
-    .img-wrapper { position: relative; display: inline-block; }
+    .img-wrapper { position: relative; display: inline-block; cursor: grab; }
     .delete-btn { position: absolute; top: -5px; right: -5px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 14px; cursor: pointer; }
+
     /* Crop modal */
     #cropModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 999; }
     #cropBox { background: white; padding: 20px; border-radius: 10px; }
-    #cropCanvas { max-width: 80vw; max-height: 80vh; cursor: crosshair; }
+    #cropCanvas { max-width: 80vw; max-height: 80vh; cursor: crosshair; background: black; }
     #cropControls { text-align: right; margin-top: 10px; }
     #cropControls button { padding: 5px 10px; margin-left: 5px; }
-    @media (max-width: 600px) {
-        .tier img, .unranked img { width: 50px; height: 50px; }
-        .label { min-width: 90px; font-size: 14px; padding: 8px 12px; }
-    }
+    #cropStatus { margin-bottom: 10px; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -43,6 +39,7 @@
 <!-- Crop Modal -->
 <div id="cropModal">
     <div id="cropBox">
+        <div id="cropStatus"></div>
         <canvas id="cropCanvas"></canvas>
         <div id="cropControls">
             <button id="cancelCrop">Cancel</button>
@@ -81,7 +78,6 @@ function createTier(score) {
     document.getElementById("tiers").appendChild(container);
     enableDrop(tier);
 }
-
 tierData.forEach(t => createTier(t.score));
 
 function enableDrop(area) {
@@ -90,16 +86,18 @@ function enableDrop(area) {
         e.preventDefault();
         const id = e.dataTransfer.getData("text");
         const wrapper = document.getElementById(id);
-        area.appendChild(wrapper);
-        saveData();
+        if (wrapper) {
+            area.appendChild(wrapper);
+            saveData();
+        }
     });
 }
-
 enableDrop(document.getElementById("unranked"));
 
 let imgCount = 0;
 document.getElementById("imageUpload").addEventListener("change", e => {
-    Array.from(e.target.files).forEach(file => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
         if (!file.type.startsWith("image/")) return;
         const reader = new FileReader();
         reader.onload = ev => {
@@ -107,7 +105,8 @@ document.getElementById("imageUpload").addEventListener("change", e => {
             img.onload = () => {
                 let ratioDiff = Math.abs(img.width - img.height) / Math.max(img.width, img.height);
                 if (ratioDiff > 0.2) {
-                    openCropModal(img);
+                    cropQueue.push(img);
+                    if (!croppingActive) startCropping();
                 } else {
                     addImageToUnranked(ev.target.result);
                 }
@@ -124,7 +123,7 @@ function createDraggableImage(src) {
     wrapper.id = "img" + (++imgCount);
     wrapper.draggable = true;
     wrapper.addEventListener("dragstart", e => {
-        e.dataTransfer.setData("text", e.target.id);
+        e.dataTransfer.setData("text", wrapper.id);
     });
     const img = document.createElement("img");
     img.src = src;
@@ -142,36 +141,37 @@ function addImageToUnranked(src) {
     saveData();
 }
 
-// --- Crop tool ---
-let cropModal = document.getElementById("cropModal");
-let cropCanvas = document.getElementById("cropCanvas");
-let cropCtx = cropCanvas.getContext("2d");
-let cropImg, cropStartX = 0, cropStartY = 0, cropSize;
+// ---- Cropping Queue ----
+let cropQueue = [];
+let croppingActive = false;
+let currentCropIndex = 0;
+let cropImg, cropStartX, cropStartY, cropSize;
+const cropModal = document.getElementById("cropModal");
+const cropCanvas = document.getElementById("cropCanvas");
+const cropCtx = cropCanvas.getContext("2d");
 
-function openCropModal(image) {
-    cropImg = image;
-    cropCanvas.width = image.width;
-    cropCanvas.height = image.height;
-    cropCtx.drawImage(image, 0, 0);
-    cropSize = Math.min(image.width, image.height);
-    cropStartX = (image.width - cropSize) / 2;
-    cropStartY = (image.height - cropSize) / 2;
+function startCropping() {
+    croppingActive = true;
+    currentCropIndex = 0;
+    showNextCrop();
+}
+
+function showNextCrop() {
+    if (currentCropIndex >= cropQueue.length) {
+        cropQueue = [];
+        croppingActive = false;
+        cropModal.style.display = "none";
+        return;
+    }
+    cropImg = cropQueue[currentCropIndex];
+    cropCanvas.width = cropImg.width;
+    cropCanvas.height = cropImg.height;
+    cropSize = Math.min(cropImg.width, cropImg.height);
+    cropStartX = (cropImg.width - cropSize) / 2;
+    cropStartY = (cropImg.height - cropSize) / 2;
     drawCropSquare();
+    document.getElementById("cropStatus").textContent = `Editing ${currentCropIndex + 1} of ${cropQueue.length}`;
     cropModal.style.display = "flex";
-
-    cropCanvas.onmousedown = e => {
-        let rect = cropCanvas.getBoundingClientRect();
-        let startX = e.clientX - rect.left;
-        let startY = e.clientY - rect.top;
-        cropCanvas.onmousemove = ev => {
-            let x = ev.clientX - rect.left;
-            let y = ev.clientY - rect.top;
-            cropStartX = Math.min(Math.max(0, x - cropSize/2), image.width - cropSize);
-            cropStartY = Math.min(Math.max(0, y - cropSize/2), image.height - cropSize);
-            drawCropSquare();
-        };
-    };
-    cropCanvas.onmouseup = () => cropCanvas.onmousemove = null;
 }
 
 function drawCropSquare() {
@@ -181,7 +181,30 @@ function drawCropSquare() {
     cropCtx.strokeRect(cropStartX, cropStartY, cropSize, cropSize);
 }
 
-document.getElementById("cancelCrop").onclick = () => cropModal.style.display = "none";
+// Move crop square - mouse + touch
+function startMoveCrop(clientX, clientY) {
+    const rect = cropCanvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    cropStartX = Math.min(Math.max(0, x - cropSize / 2), cropImg.width - cropSize);
+    cropStartY = Math.min(Math.max(0, y - cropSize / 2), cropImg.height - cropSize);
+    drawCropSquare();
+}
+cropCanvas.addEventListener("mousedown", e => {
+    startMoveCrop(e.clientX, e.clientY);
+    cropCanvas.onmousemove = ev => startMoveCrop(ev.clientX, ev.clientY);
+});
+cropCanvas.addEventListener("mouseup", () => cropCanvas.onmousemove = null);
+cropCanvas.addEventListener("touchstart", e => {
+    startMoveCrop(e.touches[0].clientX, e.touches[0].clientY);
+    cropCanvas.ontouchmove = ev => startMoveCrop(ev.touches[0].clientX, ev.touches[0].clientY);
+});
+cropCanvas.addEventListener("touchend", () => cropCanvas.ontouchmove = null);
+
+document.getElementById("cancelCrop").onclick = () => {
+    currentCropIndex++;
+    showNextCrop();
+};
 
 document.getElementById("confirmCrop").onclick = () => {
     let tempCanvas = document.createElement("canvas");
@@ -189,7 +212,8 @@ document.getElementById("confirmCrop").onclick = () => {
     tempCanvas.height = 200;
     tempCanvas.getContext("2d").drawImage(cropImg, cropStartX, cropStartY, cropSize, cropSize, 0, 0, 200, 200);
     addImageToUnranked(tempCanvas.toDataURL());
-    cropModal.style.display = "none";
+    currentCropIndex++;
+    showNextCrop();
 };
 
 function saveData() {
@@ -217,7 +241,6 @@ function loadData() {
     });
     data.unranked.forEach(src => document.getElementById("unranked").appendChild(createDraggableImage(src)));
 }
-
 loadData();
 </script>
 
