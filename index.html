@@ -1,4 +1,4 @@
-<!-- Version 1.8.0 — Island Icons + Editable Category Colors -->
+<!-- Version 1.8.1 — Editable Category Names + Colors -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -43,12 +43,8 @@ h1{text-align:center;margin:10px;}
 #island{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:#888;padding:10px;border-radius:12px;box-shadow:2px 2px 12px rgba(0,0,0,.4);z-index:1000;transition:width 0.3s,max-height 0.3s;overflow:hidden;width:250px;max-height:40px;display:flex;flex-direction:column;}
 #island.expanded{max-height:300px;width:400px;}
 #islandHeader{cursor:pointer;color:#fff;font-weight:bold;margin-bottom:5px;display:flex;align-items:center;gap:10px;}
-
-/* Buttons as icons next to header */
 .icon-btn{width:28px;height:28px;border-radius:50%;display:flex;justify-content:center;align-items:center;background:#aaa;color:#fff;cursor:pointer;font-size:20px;transition:transform .15s;}
 .icon-btn:hover{transform:scale(1.2);}
-
-/* Island content */
 #islandContent{display:none;flex-direction:column;margin-top:10px;}
 #island.expanded #islandContent{display:flex;}
 .island-btn{margin:3px;padding:4px 6px;border:none;border-radius:4px;background:#aaa;color:#fff;cursor:pointer;}
@@ -104,8 +100,14 @@ function createTier(score,name,color){
   let container=document.createElement("div");container.className="tier-container";
   let label=document.createElement("div");label.className="label";label.textContent=name||score;
   label.style.background=color||scoreToColor(score);
+
   const colorPick=document.createElement("input"); colorPick.type="color"; colorPick.value=color||scoreToColor(score); colorPick.className="color-picker";
+  colorPick.addEventListener("click",()=>{
+    let newName=prompt("Enter category name:", label.textContent);
+    if(newName) label.childNodes[0].textContent=newName;
+  });
   colorPick.addEventListener("input",()=>{label.style.background=colorPick.value; saveData();});
+
   label.appendChild(colorPick);
   let tier=document.createElement("div");tier.className="tier";tier.dataset.score=score;
   container.appendChild(label);container.appendChild(tier);document.getElementById("tiers").appendChild(container);
@@ -148,7 +150,7 @@ function saveData(){
   let data={title:document.getElementById("tierListTitle").innerText,tiers:[],unranked:[]};
   document.querySelectorAll(".tier-container").forEach(container=>{
     let tier=container.querySelector(".tier"),label=container.querySelector(".label");
-    data.tiers.push({score:tier.dataset.score,name:label.textContent, color:label.style.background, imgs:Array.from(tier.querySelectorAll("img")).map(i=>i.src)});
+    data.tiers.push({score:tier.dataset.score,name:label.childNodes[0].textContent, color:label.style.background, imgs:Array.from(tier.querySelectorAll("img")).map(i=>i.src)});
   });
   data.unranked=Array.from(document.getElementById("unranked").querySelectorAll("img")).map(i=>i.src);
   return data;
@@ -166,7 +168,7 @@ document.getElementById("fileInput").addEventListener("change",e=>{
     document.querySelectorAll(".tier-container").forEach((container,idx)=>{
       let tdata=data.tiers?.[idx]; if(!tdata) return;
       let tier=container.querySelector(".tier"),label=container.querySelector(".label");
-      tier.innerHTML=""; label.textContent=tdata.name||label.textContent; label.style.background=tdata.color||label.style.background;
+      tier.innerHTML=""; label.childNodes[0].textContent=tdata.name||label.childNodes[0].textContent; label.style.background=tdata.color||label.style.background;
       (tdata.imgs||[]).forEach(src=>tier.appendChild(createImageWrapper(src)));
     });
     document.getElementById("unranked").innerHTML="";
@@ -185,7 +187,7 @@ document.getElementById("createCategoryBtn").addEventListener("click",()=>{
 });
 </script>
 
-<footer style="position:fixed;right:10px;bottom:10px;background:rgba(100,100,100,.55);color:#fff;font-size:12px;padding:4px 8px;border-radius:8px;opacity:.85;z-index:100000;">Version 1.8.0 — Island Icons + Editable Colors</footer>
+<footer style="position:fixed;right:10px;bottom:10px;background:rgba(100,100,100,.55);color:#fff;font-size:12px;padding:4px 8px;border-radius:8px;opacity:.85;z-index:100000;">Version 1.8.1 — Editable Category Names + Colors</footer>
 
 </body>
 </html>
