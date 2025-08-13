@@ -1,225 +1,162 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tier List</title>
 <style>
-*{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:ui-sans-serif,system-ui,Arial}
-.topbar{position:sticky;top:0;z-index:5;display:flex;gap:.5rem;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:#111;color:#eee;border-bottom:1px solid #2a2a2a}
-.title-input{flex:1;max-width:520px;background:#1a1a1a;border:1px solid #333;color:#f5f5f5;padding:.5rem .75rem;border-radius:.5rem;font-size:1.1rem;outline:none}
-.title-input:focus{border-color:#555}
-.actions{display:flex;gap:.5rem;flex-wrap:wrap}
-.btn{background:#1a1a1a;border:1px solid #333;color:#f5f5f5;padding:.45rem .7rem;border-radius:.5rem;cursor:pointer}
-.btn:hover{background:#222}
-.board{display:flex;flex-direction:column;gap:.6rem;padding:1rem;min-height:calc(100% - 120px)}
-.tier{display:grid;grid-template-columns:140px 1fr;gap:0;border-radius:.8rem;overflow:hidden;border:1px solid #222}
-.tier.separated{margin-top:.8rem}
-.tier-header{display:flex;align-items:center;justify-content:center;font-weight:700;padding:1rem;color:#111;background:#ddd;min-height:82px}
-.tier-header.dark{background:#161616;color:#ddd}
-.tier-drop{display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-start;padding:.6rem;background:#0e0e0e;min-height:82px}
-.item{width:96px;height:96px;border-radius:.6rem;overflow:hidden;border:1px solid #333;background:#181818;display:flex;align-items:center;justify-content:center;cursor:grab}
-.item:active{cursor:grabbing}
-.item img{width:100%;height:100%;object-fit:cover;display:block}
-.foot{display:flex;gap:.5rem;align-items:center;padding:.75rem 1rem;border-top:1px solid #2a2a2a;background:#111;color:#bbb}
-.hidden{display:none !important}
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
+    h1 { text-align: center; margin: 10px; }
+    .tier { display: flex; flex-wrap: wrap; padding: 5px; min-height: 80px; border: 2px solid #333; margin: 5px; border-radius: 8px; }
+    .tier img, .unranked img { width: 60px; height: 60px; object-fit: cover; margin: 5px; cursor: grab; border-radius: 4px; }
+    .unranked { display: flex; flex-wrap: wrap; padding: 5px; min-height: 80px; background: #ddd; border: 2px dashed #999; margin: 5px; border-radius: 8px; }
+    .label { width: 70px; text-align: center; font-weight: bold; padding: 5px; border-radius: 6px; }
+    .tier-container { display: flex; align-items: center; flex-wrap: wrap; }
+    input[type="file"] { margin: 10px; }
+    @media (max-width: 600px) {
+        .tier img, .unranked img { width: 50px; height: 50px; }
+        .label { width: 60px; font-size: 14px; }
+    }
 </style>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<header class="topbar">
-  <input id="titleInput" class="title-input" placeholder="Tierlist name…" autocomplete="off" />
-  <div class="actions">
-    <label class="btn">
-      <input type="file" id="fileInput" accept="image/*" hidden />
-      Add image
-    </label>
-    <button id="addUrlBtn" class="btn">Add via URL</button>
-    <button id="exportBtn" class="btn">Export JSON</button>
-    <button id="importBtn" class="btn">Import JSON</button>
-    <input type="file" id="importFile" accept="application/json" hidden />
-  </div>
-</header>
 
-<main id="board" class="board"></main>
+<h1 id="tierListTitle" contenteditable="true">My Tier List</h1>
+<input type="file" id="imageUpload" accept="image/*">
 
-<template id="itemTpl">
-  <div class="item" draggable="true">
-    <img alt="" />
-  </div>
-</template>
+<div id="tiers"></div>
 
-<footer class="foot">
-  <span>Storage:</span>
-  <span id="storageMode">Local (no backend)</span>
-</footer>
+<h3 style="margin-left: 10px;">Unranked</h3>
+<div class="unranked" id="unranked"></div>
 
 <script>
-// === SETTINGS ===
-const SUPABASE_URL = "";        // Set to your Supabase URL for shared mode
-const SUPABASE_ANON_KEY = "";   // Set to your Supabase anon key
-
-// Tiers
-const TIERS = [
-  { key: "20", label: "20 >", value: 20, separated: false, darkHeader: false },
-  { key: "17", label: "17", value: 17, separated: false, darkHeader: false },
-  { key: "15", label: "15", value: 15, separated: false, darkHeader: false },
-  { key: "12", label: "12", value: 12, separated: false, darkHeader: false },
-  { key: "8",  label: "8 <", value: 8,  separated: false, darkHeader: false },
-  { key: "0f", label: "0 Female", value: 0, separated: true, darkHeader: true },
-  { key: "-500", label: "- 500 inches", value: -500, separated: false, darkHeader: true },
+const tierData = [
+    { score: 20 }, { score: 17 }, { score: 15 }, { score: 12 }, { score: 8 },
+    { score: 0 }, { score: -500 }
 ];
 
-function tierColor(value) {
-  const min = 8, max = 20;
-  const v = Math.max(min, Math.min(max, value));
-  const t = (v - min) / (max - min);
-  const hue = 120 * (1 - t);
-  return `hsl(${hue}, 85%, 62%)`;
+function scoreToColor(score) {
+    if (score >= 20) return "rgb(255,0,0)";
+    if (score >= 15) return "rgb(255,255,0)";
+    if (score >= 8) return "rgb(0,128,0)";
+    return "rgb(100,100,100)";
 }
 
-const $ = (sel, root=document) => root.querySelector(sel);
-const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-
-const state = { title: "My Tier List", items: [] };
-
-// Storage providers
-class LocalProvider {
-  constructor(){ this.key = "tierlist_v1"; }
-  async load(){ try{ return JSON.parse(localStorage.getItem(this.key)) }catch{return null} }
-  async save(data){ localStorage.setItem(this.key, JSON.stringify(data)) }
-  subscribe(){ }
-  modeLabel(){ return "Local (no backend)"; }
-}
-class SupabaseProvider {
-  constructor(url, key){
-    this.client = window.supabase.createClient(url, key);
-    this.listId = "singleton";
-  }
-  async load(){
-    const { data: head } = await this.client.from("tierlists").select("*").eq("id", this.listId).maybeSingle();
-    const { data: items } = await this.client.from("tier_items").select("*").eq("list_id", this.listId).order("created_at");
-    if (!head) return null;
-    return { title: head.title, items: (items||[]).map(r => ({ id:r.id, src:r.src, tierKey:r.tier_key })) };
-  }
-  async save(data){
-    await this.client.from("tierlists").upsert({ id: this.listId, title: data.title });
-    const { data: existing } = await this.client.from("tier_items").select("id").eq("list_id", this.listId);
-    if (existing?.length) await this.client.from("tier_items").delete().in("id", existing.map(r=>r.id));
-    if (data.items.length){
-      const rows = data.items.map(it => ({ id: it.id, list_id: this.listId, src: it.src, tier_key: it.tierKey }));
-      await this.client.from("tier_items").insert(rows);
-    }
-  }
-  subscribe(cb){
-    try{
-      this.client.channel("tier_changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "tier_items" }, () => cb())
-        .on("postgres_changes", { event: "*", schema: "public", table: "tierlists" }, () => cb())
-        .subscribe();
-    }catch{}
-  }
-  modeLabel(){ return "Supabase (shared)"; }
+function createTier(score) {
+    let container = document.createElement("div");
+    container.className = "tier-container";
+    let label = document.createElement("div");
+    label.className = "label";
+    label.style.background = scoreToColor(score);
+    label.textContent = score;
+    let tier = document.createElement("div");
+    tier.className = "tier";
+    tier.dataset.score = score;
+    container.appendChild(label);
+    container.appendChild(tier);
+    document.getElementById("tiers").appendChild(container);
+    enableDrop(tier);
 }
 
-const provider = (SUPABASE_URL && SUPABASE_ANON_KEY)
-  ? new SupabaseProvider(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : new LocalProvider();
+tierData.forEach(t => createTier(t.score));
 
-function createTierRow(tier){
-  const row = document.createElement("section");
-  row.className = "tier" + (tier.separated ? " separated" : "");
-  const head = document.createElement("div");
-  head.className = "tier-header" + (tier.darkHeader ? " dark" : "");
-  head.textContent = tier.label;
-  if (!tier.darkHeader) head.style.background = tierColor(tier.value);
-  const drop = document.createElement("div");
-  drop.className = "tier-drop";
-  drop.dataset.tierKey = tier.key;
-  row.appendChild(head); row.appendChild(drop);
-  return row;
-}
-
-function renderBoard(){
-  const board = $("#board");
-  board.innerHTML = "";
-  TIERS.forEach(t => board.appendChild(createTierRow(t)));
-  for (const it of state.items){
-    const el = createItemEl(it);
-    const target = $(`.tier-drop[data-tier-key="${it.tierKey}"]`) || $(".tier-drop");
-    target?.appendChild(el);
-  }
-  wireDnD();
-}
-
-function createItemEl(item){
-  const tpl = $("#itemTpl");
-  const el = tpl.content.firstElementChild.cloneNode(true);
-  el.dataset.id = item.id;
-  el.querySelector("img").src = item.src;
-  return el;
-}
-
-function wireDnD(){
-  $$(".item").forEach(el => {
-    el.addEventListener("dragstart", e => e.dataTransfer.setData("text/plain", el.dataset.id));
-  });
-  $$(".tier-drop").forEach(zone => {
-    zone.addEventListener("dragover", e => e.preventDefault());
-    zone.addEventListener("drop", async e => {
-      e.preventDefault();
-      const id = e.dataTransfer.getData("text/plain");
-      const item = state.items.find(i => i.id === id);
-      if (!item) return;
-      item.tierKey = zone.dataset.tierKey;
-      await persist(); renderBoard();
+function enableDrop(area) {
+    area.addEventListener("dragover", e => e.preventDefault());
+    area.addEventListener("drop", e => {
+        e.preventDefault();
+        const id = e.dataTransfer.getData("text");
+        const img = document.getElementById(id);
+        area.appendChild(img);
+        saveData();
     });
-  });
+    area.addEventListener("touchmove", e => {
+        const touch = e.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (target && (target.classList.contains("tier") || target.classList.contains("unranked"))) {
+            e.preventDefault();
+        }
+    });
+    area.addEventListener("touchend", e => saveData());
 }
 
-async function loadInitial(){
-  const data = await provider.load();
-  if (data){ state.title = data.title || state.title; state.items = data.items || []; }
-  $("#titleInput").value = state.title;
-  $("#storageMode").textContent = provider.modeLabel();
-  renderBoard();
-}
-async function persist(){ await provider.save({ title: state.title, items: state.items }); }
-function uuid(){ return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2); }
+enableDrop(document.getElementById("unranked"));
 
-function bootstrapControls(){
-  $("#titleInput").addEventListener("input", async e=>{ state.title = e.target.value.slice(0,120); await persist(); });
-  $("#fileInput").addEventListener("change", async e=>{
-    const file = e.target.files?.[0]; if (!file) return;
+let imgCount = 0;
+document.getElementById("imageUpload").addEventListener("change", e => {
+    const file = e.target.files[0];
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = async () => { state.items.push({ id: uuid(), src: reader.result, tierKey: "15" }); await persist(); renderBoard(); };
-    reader.readAsDataURL(file); e.target.value = "";
-  });
-  $("#addUrlBtn").addEventListener("click", async ()=>{
-    const url = prompt("Paste image URL:"); if (!url || !/^https?:\/\//i.test(url)) return;
-    state.items.push({ id: uuid(), src: url.trim(), tierKey: "15" }); await persist(); renderBoard();
-  });
-  $("#exportBtn").addEventListener("click", ()=>{
-    const blob = new Blob([JSON.stringify({ title: state.title, items: state.items }, null, 2)], { type: "application/json" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "tierlist.json"; a.click();
-  });
-  $("#importBtn").addEventListener("click", ()=> $("#importFile").click());
-  $("#importFile").addEventListener("change", async e=>{
-    const file = e.target.files?.[0]; if (!file) return;
-    try{
-      const data = JSON.parse(await file.text());
-      if (!data || !Array.isArray(data.items)) throw 0;
-      state.title = data.title || "Imported Tier List";
-      state.items = data.items.map(x => ({ id: x.id || uuid(), src: x.src, tierKey: x.tierKey || "15" }));
-      $("#titleInput").value = state.title;
-      await persist(); renderBoard();
-    }catch{ alert("Invalid JSON"); }
-    e.target.value = "";
-  });
-  provider.subscribe(async ()=>{ const fresh = await provider.load(); if (fresh){ state.title = fresh.title; state.items = fresh.items; $("#titleInput").value = state.title; renderBoard(); }});
+    reader.onload = ev => {
+        const img = createDraggableImage(ev.target.result);
+        document.getElementById("unranked").appendChild(img);
+        saveData();
+    };
+    reader.readAsDataURL(file);
+});
+
+function createDraggableImage(src) {
+    const img = document.createElement("img");
+    img.src = src;
+    img.id = "img" + (++imgCount);
+    img.draggable = true;
+    img.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("text", e.target.id);
+    });
+    img.addEventListener("touchstart", e => {
+        img.style.position = "absolute";
+        img.style.zIndex = 1000;
+        function moveAt(pageX, pageY) {
+            img.style.left = pageX - img.offsetWidth / 2 + "px";
+            img.style.top = pageY - img.offsetHeight / 2 + "px";
+        }
+        function onTouchMove(ev) {
+            let touch = ev.touches[0];
+            moveAt(touch.pageX, touch.pageY);
+        }
+        document.addEventListener("touchmove", onTouchMove);
+        img.addEventListener("touchend", ev => {
+            document.removeEventListener("touchmove", onTouchMove);
+            img.style.position = "";
+            img.style.zIndex = "";
+            let touch = ev.changedTouches[0];
+            let dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (dropTarget && (dropTarget.classList.contains("tier") || dropTarget.classList.contains("unranked"))) {
+                dropTarget.appendChild(img);
+                saveData();
+            }
+        }, { once: true });
+    });
+    return img;
 }
 
-window.addEventListener("DOMContentLoaded", async ()=>{ await loadInitial(); bootstrapControls(); });
+function saveData() {
+    let data = {
+        title: document.getElementById("tierListTitle").innerText,
+        tiers: [],
+        unranked: []
+    };
+    document.querySelectorAll(".tier").forEach(tier => {
+        let imgs = Array.from(tier.querySelectorAll("img")).map(img => img.src);
+        data.tiers.push({ score: tier.dataset.score, imgs });
+    });
+    data.unranked = Array.from(document.getElementById("unranked").querySelectorAll("img")).map(img => img.src);
+    localStorage.setItem("tierListData", JSON.stringify(data));
+}
+
+function loadData() {
+    let saved = localStorage.getItem("tierListData");
+    if (!saved) return;
+    let data = JSON.parse(saved);
+    document.getElementById("tierListTitle").innerText = data.title;
+    data.tiers.forEach(t => {
+        let tier = document.querySelector(`.tier[data-score="${t.score}"]`);
+        if (tier) t.imgs.forEach(src => tier.appendChild(createDraggableImage(src)));
+    });
+    data.unranked.forEach(src => document.getElementById("unranked").appendChild(createDraggableImage(src)));
+}
+
+loadData();
 </script>
+
 </body>
 </html>
