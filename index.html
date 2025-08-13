@@ -1,4 +1,4 @@
-<!-- Version 1.5.2 — Save/Load Restored -->
+<!-- Version 1.6 — Save/Load + Crop + Add Categories + Island Panel -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,37 +6,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Tier List</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
-h1 { text-align: center; margin: 10px; }
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f4; }
+h1{ text-align:center; margin:10px; }
 
-.tier-container { display: flex; align-items: center; flex-wrap: wrap; margin: 5px 10px; }
-.label { min-width: 120px; padding: 10px 15px; margin-right: 10px; text-align: center; font-weight: bold; border-radius: 12px; color: #fff; font-size: 16px; box-shadow: 2px 2px 8px rgba(0,0,0,.3); cursor: pointer; }
-.tier { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; min-height: 80px; border-radius: 12px; margin: 5px 0; background: #fff; box-shadow: 1px 1px 6px rgba(0,0,0,.2); flex: 1; cursor: pointer; }
-.unranked { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px; min-height: 80px; background: #ddd; border: 2px dashed #999; margin: 5px 10px 20px; border-radius: 12px; }
-.img-wrapper { position: relative; display: inline-block; width: 60px; height: 60px; border-radius: 6px; overflow: hidden; cursor: pointer; }
-.img-wrapper img { width: 100%; height: 100%; object-fit: cover; transition: transform .15s; }
-.img-wrapper:hover img { transform: scale(1.06); }
-.img-wrapper.selected { outline: 3px solid #00e0ff; outline-offset: 2px; }
-.delete-btn { position: absolute; top: -6px; right: -6px; background: rgba(255,0,0,.9); color: #fff; border: 0; border-radius: 50%; width: 20px; height: 20px; line-height: 20px; font-size: 14px; cursor: pointer; }
+.tier-container{ display:flex; align-items:center; flex-wrap:wrap; margin:5px 10px; }
+.label{ min-width:120px; padding:10px 15px; margin-right:10px; text-align:center; font-weight:bold; border-radius:12px; color:#fff; font-size:16px; box-shadow:2px 2px 8px rgba(0,0,0,.3); cursor:pointer; }
+.tier{ display:flex; flex-wrap:wrap; gap:5px; padding:10px; min-height:80px; border-radius:12px; margin:5px 0; background:#fff; box-shadow:1px 1px 6px rgba(0,0,0,.2); flex:1; cursor:pointer; }
+.unranked{ display:flex; flex-wrap:wrap; gap:5px; padding:10px; min-height:80px; background:#ddd; border:2px dashed #999; margin:5px 10px 20px; border-radius:12px; }
+.img-wrapper{ position:relative; display:inline-block; width:60px; height:60px; border-radius:6px; overflow:hidden; cursor:pointer; }
+.img-wrapper img{ width:100%; height:100%; object-fit:cover; transition: transform .15s; }
+.img-wrapper:hover img{ transform:scale(1.06); }
+.img-wrapper.selected{ outline:3px solid #00e0ff; outline-offset:2px; }
+.delete-btn{ position:absolute; top:-6px; right:-6px; background:rgba(255,0,0,.9); color:#fff; border:0; border-radius:50%; width:20px; height:20px; line-height:20px; font-size:14px; cursor:pointer; }
 
 /* Footer island-style */
-#footer {
-  position: fixed; right: 10px; bottom: 10px;
-  background: rgba(0,0,0,.55); color: #fff;
-  font-size: 12px; padding: 4px 8px; border-radius: 8px;
-  z-index: 100000; opacity: 0.85; pointer-events: auto;
-  box-shadow: 0 2px 6px rgba(0,0,0,.35); display: flex; gap: 6px; align-items: center;
-}
-.menu { background: rgba(30,30,30,0.8); border-radius: 10px; padding: 4px 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.4); position: relative; }
-.menu button { background: none; border: none; color: white; cursor: pointer; padding: 4px 8px; font-size: 0.85em; display: block; text-align: left; width: 100%; }
-.menu-content { display: none; position: absolute; bottom: 100%; right: 0; background: rgba(30,30,30,0.95); border-radius: 10px; overflow: hidden; min-width: 120px; }
-.menu:hover .menu-content { display: block; }
+#footer{ position:fixed; right:10px; bottom:10px; background:rgba(100,100,100,.55); color:#fff; font-size:12px; padding:4px 8px; border-radius:8px; z-index:100000; opacity:.85; display:flex; gap:6px; align-items:center; transition:width .3s; cursor:pointer; }
+.menu{ position:relative; }
+.menu button{ background:none; border:none; color:white; cursor:pointer; padding:4px 8px; font-size:0.85em; display:block; text-align:left; width:100%; }
+.menu-content{ display:none; position:absolute; bottom:100%; right:0; background:rgba(30,30,30,0.95); border-radius:10px; overflow:hidden; min-width:120px; }
+.menu:hover .menu-content{ display:block; }
 
-input[type="file"] { margin: 10px; display: block; }
-@media (max-width: 600px){
-  .label{ min-width: 90px; font-size: 14px; padding: 8px 12px; }
-  .img-wrapper{ width: 50px; height: 50px; }
-}
+#addCategoryPanel{ display:none; position:fixed; bottom:60px; left:50%; transform:translateX(-50%); background:#fff; padding:10px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.3); }
+.color-option{ width:25px; height:25px; display:inline-block; margin:3px; border-radius:4px; cursor:pointer; border:2px solid #555; }
+
+#cropOverlay{ display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.7); justify-content:center; align-items:center; z-index:10000; }
+#cropContainer{ position:relative; background:#fff; padding:10px; border-radius:8px; display:flex; flex-direction:column; align-items:center; }
+#cropImage{ max-width:80vw; max-height:80vh; object-fit:contain; }
+#cropButton{ margin-top:5px; padding:4px 8px; border:none; background:#28a745; color:white; border-radius:4px; cursor:pointer; }
+
+input[type="file"]{ margin:10px; display:block; }
+@media(max-width:600px){ .label{ min-width:90px; font-size:14px; padding:8px 12px; } .img-wrapper{ width:50px;height:50px; } }
 </style>
 </head>
 <body>
@@ -49,17 +48,35 @@ input[type="file"] { margin: 10px; display: block; }
 <h3 style="margin-left:10px;">Unranked</h3>
 <div class="unranked" id="unranked"></div>
 
-<footer>
-  <div>Version 1.5.2 — Save/Load</div>
+<!-- Add Category Panel -->
+<div id="addCategoryPanel">
+<label>Category Name: <input type="text" id="newCategoryName" /></label><br>
+<div id="bgColors"></div>
+<button id="createCategoryBtn">Add Category</button>
+</div>
+
+<!-- Crop Overlay -->
+<div id="cropOverlay">
+  <div id="cropContainer">
+    <img id="cropImage"/>
+    <button id="cropButton">OK</button>
+  </div>
+</div>
+
+<footer id="footer">
+  <div id="footerText">Version 1.6 — Crop/Save/Category</div>
   <div class="menu">
     ☰
     <div class="menu-content">
-      <button onclick="saveTierlist()">Save Tierlist</button>
-      <button onclick="document.getElementById('fileInput').click()">Load Tierlist</button>
+      <button id="saveBtn">Save Tierlist</button>
+      <button id="loadBtn">Load Tierlist</button>
+      <button id="addCatBtn">Add Category</button>
+      <button id="creditsBtn">Credits</button>
     </div>
   </div>
 </footer>
-<input type="file" id="fileInput" accept=".json" style="display:none" onchange="loadTierlist(event)">
+
+<input type="file" id="fileInput" accept=".json" style="display:none" />
 
 <script>
 // ---------------- TIERS ----------------
@@ -67,7 +84,6 @@ const tierData = [
   { score: 20 }, { score: 17 }, { score: 15 }, { score: 12 }, { score: 8 },
   { score: 0 }, { score: -500 }
 ];
-
 function scoreToColor(score){
   if(score>=20) return "linear-gradient(45deg,#ff0000,#ff5555)";
   if(score>=17) return "linear-gradient(45deg,#ff6a00,#ff9a00)";
@@ -76,128 +92,39 @@ function scoreToColor(score){
   if(score>=8)  return "linear-gradient(45deg,#0099ff,#00ccff)";
   return "linear-gradient(45deg,#555,#999)";
 }
-
-function createTier(score){
-  let container = document.createElement("div");
-  container.className = "tier-container";
-  let label = document.createElement("div");
-  label.className = "label";
-  label.style.background = scoreToColor(score);
-  label.textContent = score;
-  let tier = document.createElement("div");
-  tier.className = "tier";
-  tier.dataset.score = score;
+function createTier(score,name){
+  let container=document.createElement("div");
+  container.className="tier-container";
+  let label=document.createElement("div");
+  label.className="label";
+  label.style.background=scoreToColor(score);
+  label.textContent=name||score;
+  let tier=document.createElement("div");
+  tier.className="tier";
+  tier.dataset.score=score;
   container.appendChild(label);
   container.appendChild(tier);
   document.getElementById("tiers").appendChild(container);
-
-  // Click to place
-  function placeSelected(){
-    if(selectedWrapper) { tier.appendChild(selectedWrapper); selectedWrapper.classList.remove('selected'); selectedWrapper=null; saveData(); }
-  }
-  label.addEventListener("click", placeSelected);
-  tier.addEventListener("click", placeSelected);
+  label.addEventListener("click",()=>{if(selectedWrapper){tier.appendChild(selectedWrapper); selectedWrapper.classList.remove("selected"); selectedWrapper=null; saveData();}});
+  tier.addEventListener("click",()=>{if(selectedWrapper){tier.appendChild(selectedWrapper); selectedWrapper.classList.remove("selected"); selectedWrapper=null; saveData();}});
 }
+tierData.forEach(t=>createTier(t.score));
 
-tierData.forEach(t => createTier(t.score));
-
-// ---------------- IMAGE UPLOAD ----------------
-let imgCount = 0;
-let selectedWrapper = null;
+// ---------------- IMAGE UPLOAD & CROPPING ----------------
+let imgCount=0; let selectedWrapper=null; let cropQueue=[]; let cropping=false;
 
 function selectWrapper(wrapper){
-  if(selectedWrapper) selectedWrapper.classList.remove('selected');
-  selectedWrapper = wrapper;
-  if(wrapper) wrapper.classList.add('selected');
+  if(selectedWrapper) selectedWrapper.classList.remove("selected");
+  selectedWrapper=wrapper;
+  if(wrapper) wrapper.classList.add("selected");
 }
 
 function createImageWrapper(src){
-  const wrap = document.createElement("div");
-  wrap.className = "img-wrapper";
-  wrap.id = "img"+(++imgCount);
-  const img = document.createElement("img");
-  img.src = src;
-
-  const del = document.createElement("button");
-  del.className = "delete-btn";
-  del.textContent = "×";
-  del.addEventListener("click", e=>{
-    e.stopPropagation(); wrap.remove(); if(selectedWrapper===wrap) selectedWrapper=null; saveData();
-  });
-
+  const wrap=document.createElement("div");
+  wrap.className="img-wrapper"; wrap.id="img"+(++imgCount);
+  const img=document.createElement("img"); img.src=src;
+  const del=document.createElement("button"); del.className="delete-btn"; del.textContent="×";
+  del.addEventListener("click", e=>{e.stopPropagation(); wrap.remove(); if(selectedWrapper===wrap) selectedWrapper=null; saveData();});
+  wrap.appendChild(img); wrap.appendChild(del);
   wrap.addEventListener("click", ()=>{
-    if(wrap.closest(".tier") && !wrap.closest("#unranked")){
-      document.getElementById("unranked").appendChild(wrap); saveData();
-    } else {
-      selectWrapper(selectedWrapper===wrap?null:wrap);
-    }
-  });
-
-  wrap.appendChild(img);
-  wrap.appendChild(del);
-  return wrap;
-}
-
-function addToUnranked(src){ document.getElementById("unranked").appendChild(createImageWrapper(src)); saveData(); }
-
-document.getElementById("imageUpload").addEventListener("change", e=>{
-  Array.from(e.target.files||[]).forEach(file=>{
-    if(!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = ev => addToUnranked(ev.target.result);
-    reader.readAsDataURL(file);
-  });
-});
-
-// ---------------- SAVE / LOAD ----------------
-function saveTierlist(){
-  let data={ title: document.getElementById("tierListTitle").innerText, tiers: [], unranked: [] };
-  document.querySelectorAll(".tier").forEach(t=>{
-    data.tiers.push({ score: t.dataset.score, imgs: Array.from(t.querySelectorAll("img")).map(i=>i.src) });
-  });
-  data.unranked = Array.from(document.getElementById("unranked").querySelectorAll("img")).map(i=>i.src);
-  let blob = new Blob([JSON.stringify(data)], {type:"application/json"});
-  let a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download="tierlist.json"; a.click();
-}
-
-function loadTierlist(e){
-  let file = e.target.files[0]; if(!file) return;
-  let reader = new FileReader();
-  reader.onload=function(ev){
-    let data=JSON.parse(ev.target.result);
-    document.getElementById("tierListTitle").innerText=data.title||"My Tier List";
-    document.querySelectorAll(".tier").forEach(t=>t.innerHTML="");
-    data.tiers.forEach((tdata, idx)=>{
-      let tier=document.querySelectorAll(".tier")[idx];
-      (tdata.imgs||[]).forEach(src=>tier.appendChild(createImageWrapper(src)));
-    });
-    document.getElementById("unranked").innerHTML="";
-    (data.unranked||[]).forEach(src=>addToUnranked(src));
-  };
-  reader.readAsText(file);
-}
-
-// ---------------- LOAD PREVIOUS DATA ----------------
-function loadData(){
-  let saved = localStorage.getItem("tierListData"); if(!saved) return;
-  let data = JSON.parse(saved);
-  document.getElementById("tierListTitle").innerText=data.title||"My Tier List";
-  data.tiers?.forEach((tdata, idx)=>{
-    let tier = document.querySelectorAll(".tier")[idx];
-    (tdata.imgs||[]).forEach(src=>tier.appendChild(createImageWrapper(src)));
-  });
-  (data.unranked||[]).forEach(src=>addToUnranked(src));
-}
-loadData();
-
-function saveData(){ // autosave
-  let data={ title: document.getElementById("tierListTitle").innerText, tiers: [], unranked: [] };
-  document.querySelectorAll(".tier").forEach(t=>{
-    data.tiers.push({ score: t.dataset.score, imgs: Array.from(t.querySelectorAll("img")).map(i=>i.src) });
-  });
-  data.unranked = Array.from(document.getElementById("unranked").querySelectorAll("img")).map(i=>i.src);
-  localStorage.setItem("tierListData", JSON.stringify(data));
-}
-</script>
-</body>
-</html>
+    if(wrap.closest(".tier") && !wrap.closest("#unranked")){ document.getElementBy
