@@ -1,0 +1,825 @@
+# Create project files for a tier list site with optional Supabase-backed persistence.
+
+# The project includes:
+
+# - index.html
+
+# - styles.css
+
+# - app.js
+
+# - README.md
+
+# - supabase_schema.sql
+
+# Then it zips them into /mnt/data/tierlist-site.zip
+
+
+
+import zipfile, os, textwrap, json, pathlib
+
+
+
+project_dir = "/mnt/data/tierlist_site"
+
+os.makedirs(project_dir, exist_ok=True)
+
+
+
+index_html = """<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Tier List</title>
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script defer src="app.js"></script>
+
+</head>
+
+<body>
+
+  <header class="topbar">
+
+    <input id="titleInput" class="title-input" placeholder="Tierlist name…" autocomplete="off" />
+
+    <div class="actions">
+
+      <label class="btn">
+
+        <input type="file" id="fileInput" accept="image/*" hidden />
+
+        Add image
+
+      </label>
+
+      <button id="addUrlBtn" class="btn">Add via URL</button>
+
+      <button id="exportBtn" class="btn">Export JSON</button>
+
+      <button id="importBtn" class="btn">Import JSON</button>
+
+      <input type="file" id="importFile" accept="application/json" hidden />
+
+    </div>
+
+  </header>
+
+
+
+  <main id="board" class="board"></main>
+
+
+
+  <template id="itemTpl">
+
+    <div class="item" draggable="true">
+
+      <img alt="" />
+
+    </div>
+
+  </template>
+
+
+
+  <footer class="foot">
+
+    <span>Storage:</span>
+
+    <span id="storageMode">Local (no backend)</span>
+
+  </footer>
+
+</body>
+
+</html>
+
+"""
+
+
+
+styles_css = """*{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:ui-sans-serif,system-ui,Arial}
+
+.topbar{position:sticky;top:0;z-index:5;display:flex;gap:.5rem;align-items:center;justify-content:space-between;padding:.75rem 1rem;background:#111;color:#eee;border-bottom:1px solid #2a2a2a}
+
+.title-input{flex:1;max-width:520px;background:#1a1a1a;border:1px solid #333;color:#f5f5f5;padding:.5rem .75rem;border-radius:.5rem;font-size:1.1rem;outline:none}
+
+.title-input:focus{border-color:#555}
+
+.actions{display:flex;gap:.5rem;flex-wrap:wrap}
+
+.btn{background:#1a1a1a;border:1px solid #333;color:#f5f5f5;padding:.45rem .7rem;border-radius:.5rem;cursor:pointer}
+
+.btn:hover{background:#222}
+
+.board{display:flex;flex-direction:column;gap:.6rem;padding:1rem;min-height:calc(100% - 120px)}
+
+.tier{display:grid;grid-template-columns:140px 1fr;gap:0;border-radius:.8rem;overflow:hidden;border:1px solid #222}
+
+.tier.separated{margin-top:.8rem}
+
+.tier-header{display:flex;align-items:center;justify-content:center;font-weight:700;padding:1rem;color:#111;background:#ddd;min-height:82px}
+
+.tier-header.dark{background:#161616;color:#ddd}
+
+.tier-drop{display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-start;padding:.6rem;background:#0e0e0e;min-height:82px}
+
+.item{width:96px;height:96px;border-radius:.6rem;overflow:hidden;border:1px solid #333;background:#181818;display:flex;align-items:center;justify-content:center;cursor:grab}
+
+.item:active{cursor:grabbing}
+
+.item img{width:100%;height:100%;object-fit:cover;display:block}
+
+.foot{display:flex;gap:.5rem;align-items:center;padding:.75rem 1rem;border-top:1px solid #2a2a2a;background:#111;color:#bbb}
+
+
+
+/* Utility */
+
+.hidden{display:none !important}
+
+"""
+
+
+
+app_js = r"""// Minimal tier-list app with optional Supabase persistence.
+
+// If SUPABASE_URL and SUPABASE_ANON_KEY are set, data is shared across visitors.
+
+// Otherwise it falls back to localStorage (per-browser).
+
+//
+
+// To use Supabase: create a project, run the SQL in supabase_schema.sql, then
+
+// paste creds below.
+
+
+
+const SUPABASE_URL = "";        // <-- paste your Supabase URL or leave empty for local
+
+const SUPABASE_ANON_KEY = "";   // <-- paste your Supabase anon key
+
+
+
+// Tiers definition
+
+const TIERS = [
+
+  { key: "20", label: "20 >", value: 20, separated: false, darkHeader: false },
+
+  { key: "17", label: "17", value: 17, separated: false, darkHeader: false },
+
+  { key: "15", label: "15", value: 15, separated: false, darkHeader: false },
+
+  { key: "12", label: "12", value: 12, separated: false, darkHeader: false },
+
+  { key: "8",  label: "8 <", value: 8,  separated: false, darkHeader: false },
+
+  { key: "0f", label: "0 Female", value: 0, separated: true, darkHeader: true },
+
+  { key: "-500", label: "- 500 inches", value: -500, separated: false, darkHeader: true },
+
+];
+
+
+
+// Color from value: map 8 (green) .. 20 (red). Values outside clamp.
+
+function tierColor(value) {
+
+  const min = 8, max = 20;
+
+  const v = Math.max(min, Math.min(max, value));
+
+  // hue 120 (green) -> 0 (red)
+
+  const t = (v - min) / (max - min);
+
+  const hue = 120 * (1 - t);
+
+  return `hsl(${hue}, 85%, 62%)`;
+
+}
+
+
+
+const $ = (sel, root=document) => root.querySelector(sel);
+
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+
+
+const state = {
+
+  title: "My Tier List",
+
+  items: [
+
+    // { id: "uuid", src: "dataurl or http url", tierKey: "15" }
+
+  ]
+
+};
+
+
+
+// ---------------- Storage Provider ----------------
+
+class LocalProvider {
+
+  constructor() { this.key = "tierlist_v1"; }
+
+  async load() {
+
+    const raw = localStorage.getItem(this.key);
+
+    if (!raw) return null;
+
+    try { return JSON.parse(raw); } catch { return null; }
+
+  }
+
+  async save(data) { localStorage.setItem(this.key, JSON.stringify(data)); }
+
+  subscribe(_cb){ /* no-op */ }
+
+  modeLabel(){ return "Local (no backend)"; }
+
+}
+
+
+
+class SupabaseProvider {
+
+  constructor(url, key){
+
+    this.client = window.supabase.createClient(url, key);
+
+    this.listId = "singleton";
+
+  }
+
+  async load(){
+
+    const { data: head } = await this.client.from("tierlists").select("*").eq("id", this.listId).maybeSingle();
+
+    const { data: items } = await this.client.from("tier_items").select("*").eq("list_id", this.listId).order("created_at", { ascending: true });
+
+    if (!head) return null;
+
+    return { title: head.title, items: (items||[]).map(r => ({ id:r.id, src:r.src, tierKey:r.tier_key })) };
+
+  }
+
+  async save(data){
+
+    // upsert head
+
+    await this.client.from("tierlists").upsert({ id: this.listId, title: data.title });
+
+    // Replace items: simplest approach
+
+    const { data: existing } = await this.client.from("tier_items").select("id").eq("list_id", this.listId);
+
+    const ids = (existing||[]).map(r=>r.id);
+
+    if (ids.length) await this.client.from("tier_items").delete().in("id", ids);
+
+    if (data.items.length){
+
+      const rows = data.items.map(it => ({ id: it.id, list_id: this.listId, src: it.src, tier_key: it.tierKey }));
+
+      await this.client.from("tier_items").insert(rows);
+
+    }
+
+  }
+
+  subscribe(cb){
+
+    // live updates (optional). If your project has Realtime enabled, this will broadcast changes.
+
+    try{
+
+      this.client.channel("tier_changes")
+
+        .on("postgres_changes", { event: "*", schema: "public", table: "tier_items" }, () => cb())
+
+        .on("postgres_changes", { event: "*", schema: "public", table: "tierlists" }, () => cb())
+
+        .subscribe();
+
+    }catch{ /* ignore */ }
+
+  }
+
+  modeLabel(){ return "Supabase (shared)"; }
+
+}
+
+
+
+const provider = (SUPABASE_URL && SUPABASE_ANON_KEY)
+
+  ? new SupabaseProvider(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+  : new LocalProvider();
+
+
+
+// --------------- UI Build -----------------
+
+function createTierRow(tier){
+
+  const row = document.createElement("section");
+
+  row.className = "tier" + (tier.separated ? " separated" : "");
+
+  const head = document.createElement("div");
+
+  head.className = "tier-header" + (tier.darkHeader ? " dark" : "");
+
+  head.textContent = tier.label;
+
+  if (!tier.darkHeader) head.style.background = tierColor(tier.value);
+
+  const drop = document.createElement("div");
+
+  drop.className = "tier-drop";
+
+  drop.dataset.tierKey = tier.key;
+
+  row.appendChild(head);
+
+  row.appendChild(drop);
+
+  return row;
+
+}
+
+
+
+function renderBoard(){
+
+  const board = $("#board");
+
+  board.innerHTML = "";
+
+  TIERS.forEach(t => {
+
+    board.appendChild(createTierRow(t));
+
+  });
+
+  // fill items
+
+  for (const it of state.items){
+
+    const el = createItemEl(it);
+
+    const target = $(`.tier-drop[data-tier-key="${it.tierKey}"]`) || $(".tier-drop");
+
+    target?.appendChild(el);
+
+  }
+
+  wireDnD();
+
+}
+
+
+
+function createItemEl(item){
+
+  const tpl = $("#itemTpl");
+
+  const el = tpl.content.firstElementChild.cloneNode(true);
+
+  el.dataset.id = item.id;
+
+  el.querySelector("img").src = item.src;
+
+  return el;
+
+}
+
+
+
+function wireDnD(){
+
+  $$(".item").forEach(el => {
+
+    el.addEventListener("dragstart", e => {
+
+      e.dataTransfer.setData("text/plain", el.dataset.id);
+
+    });
+
+  });
+
+  $$(".tier-drop").forEach(zone => {
+
+    zone.addEventListener("dragover", e => e.preventDefault());
+
+    zone.addEventListener("drop", async e => {
+
+      e.preventDefault();
+
+      const id = e.dataTransfer.getData("text/plain");
+
+      const item = state.items.find(i => i.id === id);
+
+      if (!item) return;
+
+      item.tierKey = zone.dataset.tierKey;
+
+      await persist();
+
+      renderBoard();
+
+    });
+
+  });
+
+}
+
+
+
+// --------------- Persistence --------------
+
+async function loadInitial(){
+
+  const data = await provider.load();
+
+  if (data){
+
+    state.title = data.title || state.title;
+
+    state.items = data.items || [];
+
+  }
+
+  $("#titleInput").value = state.title;
+
+  $("#storageMode").textContent = provider.modeLabel();
+
+  renderBoard();
+
+}
+
+
+
+async function persist(){
+
+  await provider.save({ title: state.title, items: state.items });
+
+}
+
+
+
+function uuid(){ return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2); }
+
+
+
+// --------------- Controls ----------------
+
+function bootstrapControls(){
+
+  $("#titleInput").addEventListener("input", async (e)=>{
+
+    state.title = e.target.value.slice(0, 120);
+
+    await persist();
+
+  });
+
+
+
+  $("#fileInput").addEventListener("change", async (e)=>{
+
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+
+      state.items.push({ id: uuid(), src: reader.result, tierKey: "15" });
+
+      await persist();
+
+      renderBoard();
+
+    };
+
+    reader.readAsDataURL(file);
+
+    e.target.value = "";
+
+  });
+
+
+
+  $("#addUrlBtn").addEventListener("click", async ()=>{
+
+    const url = prompt("Paste image URL:");
+
+    if (!url) return;
+
+    // basic validation
+
+    if (!/^https?:\/\//i.test(url)) return alert("Invalid URL");
+
+    state.items.push({ id: uuid(), src: url.trim(), tierKey: "15" });
+
+    await persist();
+
+    renderBoard();
+
+  });
+
+
+
+  $("#exportBtn").addEventListener("click", ()=>{
+
+    const payload = JSON.stringify({ title: state.title, items: state.items }, null, 2);
+
+    const blob = new Blob([payload], { type: "application/json" });
+
+    const a = document.createElement("a");
+
+    a.href = URL.createObjectURL(blob);
+
+    a.download = "tierlist.json";
+
+    a.click();
+
+  });
+
+
+
+  $("#importBtn").addEventListener("click", ()=> $("#importFile").click());
+
+  $("#importFile").addEventListener("change", async (e)=>{
+
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    const text = await file.text();
+
+    try{
+
+      const data = JSON.parse(text);
+
+      if (!data || !Array.isArray(data.items)) throw new Error("bad");
+
+      state.title = data.title || "Imported Tier List";
+
+      state.items = data.items.map(x => ({ id: x.id || uuid(), src: x.src, tierKey: x.tierKey || "15" }));
+
+      $("#titleInput").value = state.title;
+
+      await persist();
+
+      renderBoard();
+
+    }catch{
+
+      alert("Invalid JSON");
+
+    }finally{
+
+      e.target.value = "";
+
+    }
+
+  });
+
+
+
+  // live updates (Supabase only)
+
+  provider.subscribe(async ()=>{
+
+    const fresh = await provider.load();
+
+    if (fresh){
+
+      state.title = fresh.title || state.title;
+
+      state.items = fresh.items || state.items;
+
+      $("#titleInput").value = state.title;
+
+      renderBoard();
+
+    }
+
+  });
+
+}
+
+
+
+// --------------- Init ----------------
+
+window.addEventListener("DOMContentLoaded", async ()=>{
+
+  await loadInitial();
+
+  bootstrapControls();
+
+});
+
+"""
+
+
+
+readme_md = """# Tier List Site (Drag & Drop, Images, Shared or Local)
+
+
+
+No-nonsense: if you want **everyone** to see the same edits, you need a backend.
+
+GitHub Pages is static. This project gives you two modes:
+
+
+
+1) **Supabase mode (shared across visitors)** — plug in credentials, deploy to GitHub Pages.
+
+2) **Local mode (per-browser)** — works instantly, but changes are only saved in that browser.
+
+
+
+## Quick Start (Local, zero setup)
+
+1. Drop these files into a GitHub repo and enable **GitHub Pages** (e.g., `main` branch `/`).
+
+2. Open the site. You'll see `Storage: Local (no backend)`. Add images (file upload or URL), drag into tiers, rename title. Data persists in your browser only.
+
+
+
+## Supabase Setup (shared edits)
+
+1. Create a free Supabase project.
+
+2. In Supabase SQL editor, run `supabase_schema.sql` from this repo.
+
+3. In `app.js`, set:
+
+   ```js
+
+   const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+
+   const SUPABASE_ANON_KEY = "YOUR_PUBLIC_ANON_KEY";
+
+   ```
+
+4. In **Project Settings → Database → Replication**, ensure Realtime is enabled for `public` schema if you want live sync (optional).
+
+5. Commit & push. On reload, footer should say `Storage: Supabase (shared)`.
+
+
+
+## What you get
+
+- **7 rows** in order with the exact labels you asked:
+
+  - `20 >`, `17`, `15`, `12`, `8 <`, then (slightly separated, darker headers): `0 Female`, `- 500 inches`.
+
+- Headers color: the higher the number, the **more red** (20 bright red), the lower the **more green** (8 dark green). The two darker rows use a dark header style as requested.
+
+- **Add images** (upload or via URL), **drag and drop** items between tiers.
+
+- **Title** is editable (top-left) and saved.
+
+- **Export/Import JSON** as a quick backup/restore.
+
+- Minimal, dependency-light, plain HTML/CSS/JS.
+
+
+
+## Notes
+
+- Supabase security: this example uses a single shared list (`id = 'singleton'`). For a public board, keep it simple, but understand **anyone can edit**. If you want auth/role limits, add RLS policies.
+
+- Images: uploads are embedded as Base64 (local) or URLs/base64 (Supabase rows). For heavy usage, consider Supabase Storage and store file URLs.
+
+- Styling is intentionally minimal. Tweak `styles.css` if you want bigger cells or different spacing.
+
+"""
+
+
+
+schema_sql = """-- Public shared tierlist schema
+
+create table if not exists public.tierlists (
+
+  id text primary key,
+
+  title text not null default 'My Tier List',
+
+  updated_at timestamptz not null default now()
+
+);
+
+
+
+create table if not exists public.tier_items (
+
+  id uuid primary key,
+
+  list_id text not null references public.tierlists(id) on delete cascade,
+
+  src text not null,         -- data URL or http(s) URL
+
+  tier_key text not null,    -- e.g., '15'
+
+  created_at timestamptz not null default now()
+
+);
+
+
+
+-- Basic open RLS (optional). Use with caution: this allows public read/write with anon key.
+
+alter table public.tierlists enable row level security;
+
+alter table public.tier_items enable row level security;
+
+
+
+do $$ begin
+
+  if not exists (select 1 from pg_policies where polname='tierlists_open_rw') then
+
+    create policy tierlists_open_rw on public.tierlists
+
+      for all using (true) with check (true);
+
+  end if;
+
+  if not exists (select 1 from pg_policies where polname='tier_items_open_rw') then
+
+    create policy tier_items_open_rw on public.tier_items
+
+      for all using (true) with check (true);
+
+  end if;
+
+end $$;
+
+"""
+
+
+
+files = {
+
+    "index.html": index_html,
+
+    "styles.css": styles_css,
+
+    "app.js": app_js,
+
+    "README.md": readme_md,
+
+    "supabase_schema.sql": schema_sql,
+
+}
+
+
+
+for name, content in files.items():
+
+    with open(os.path.join(project_dir, name), "w", encoding="utf-8") as f:
+
+        f.write(content)
+
+
+
+zip_path = "/mnt/data/tierlist-site.zip"
+
+with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
+
+    for name in files:
+
+        z.write(os.path.join(project_dir, name), arcname=name)
+
+
+
+zip_path
