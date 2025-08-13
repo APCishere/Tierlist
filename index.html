@@ -5,103 +5,51 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tier List</title>
 <style>
-    body { 
-        font-family: Arial, sans-serif; 
-        margin: 0; 
-        padding: 0; 
-        background: #f4f4f4; 
-    }
-    h1 { 
-        text-align: center; 
-        margin: 10px; 
-    }
-    .tier-container { 
-        display: flex; 
-        align-items: center; 
-        flex-wrap: wrap; 
-        margin: 5px 10px;
-    }
-    .label { 
-        min-width: 120px; 
-        padding: 10px 15px; 
-        text-align: center; 
-        font-weight: bold; 
-        border-radius: 12px; 
-        color: white; 
-        font-size: 16px; 
-        box-shadow: 2px 2px 8px rgba(0,0,0,0.3); 
-        transition: transform 0.2s, box-shadow 0.2s; 
-        margin-right: 10px;
-    }
-    .label:hover { 
-        transform: scale(1.05); 
-        box-shadow: 4px 4px 12px rgba(0,0,0,0.5); 
-    }
-    .tier { 
-        display: flex; 
-        flex-wrap: wrap; 
-        padding: 10px; 
-        min-height: 80px; 
-        border: 2px solid #333; 
-        border-radius: 12px; 
-        margin: 5px 0; 
-        background: #fff; 
-        box-shadow: 1px 1px 6px rgba(0,0,0,0.2); 
-        transition: box-shadow 0.2s; 
-        flex: 1;
-    }
-    .tier:hover {
-        box-shadow: 2px 2px 12px rgba(0,0,0,0.35);
-    }
-    .tier img, .unranked img { 
-        width: 60px; 
-        height: 60px; 
-        object-fit: cover; 
-        margin: 5px; 
-        cursor: grab; 
-        border-radius: 6px; 
-        transition: transform 0.2s; 
-    }
-    .tier img:hover, .unranked img:hover {
-        transform: scale(1.1);
-    }
-    .unranked { 
-        display: flex; 
-        flex-wrap: wrap; 
-        padding: 10px; 
-        min-height: 80px; 
-        background: #e0e0e0; 
-        border: 2px dashed #999; 
-        margin: 5px 10px; 
-        border-radius: 12px; 
-        box-shadow: inset 1px 1px 5px rgba(0,0,0,0.1);
-    }
-    input[type="file"] { 
-        margin: 10px; 
-        display: block;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
+    h1 { text-align: center; margin: 10px; }
+    .tier-container { display: flex; align-items: center; flex-wrap: wrap; margin: 5px 10px; }
+    .label { min-width: 120px; padding: 10px 15px; text-align: center; font-weight: bold; border-radius: 12px; color: white; font-size: 16px; box-shadow: 2px 2px 8px rgba(0,0,0,0.3); transition: transform 0.2s, box-shadow 0.2s; margin-right: 10px; }
+    .label:hover { transform: scale(1.05); box-shadow: 4px 4px 12px rgba(0,0,0,0.5); }
+    .tier { display: flex; flex-wrap: wrap; padding: 10px; min-height: 80px; border: 2px solid #333; border-radius: 12px; margin: 5px 0; background: #fff; box-shadow: 1px 1px 6px rgba(0,0,0,0.2); transition: box-shadow 0.2s; flex: 1; }
+    .tier:hover { box-shadow: 2px 2px 12px rgba(0,0,0,0.35); }
+    .tier img, .unranked img { width: 60px; height: 60px; object-fit: cover; margin: 5px; cursor: grab; border-radius: 6px; transition: transform 0.2s; }
+    .tier img:hover, .unranked img:hover { transform: scale(1.1); }
+    .unranked { display: flex; flex-wrap: wrap; padding: 10px; min-height: 80px; background: #e0e0e0; border: 2px dashed #999; margin: 5px 10px; border-radius: 12px; box-shadow: inset 1px 1px 5px rgba(0,0,0,0.1); }
+    input[type="file"] { margin: 10px; display: block; }
+    .img-wrapper { position: relative; display: inline-block; }
+    .delete-btn { position: absolute; top: -5px; right: -5px; background: rgba(255,0,0,0.8); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 14px; cursor: pointer; }
+    /* Crop modal */
+    #cropModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 999; }
+    #cropBox { background: white; padding: 20px; border-radius: 10px; }
+    #cropCanvas { max-width: 80vw; max-height: 80vh; cursor: crosshair; }
+    #cropControls { text-align: right; margin-top: 10px; }
+    #cropControls button { padding: 5px 10px; margin-left: 5px; }
     @media (max-width: 600px) {
-        .tier img, .unranked img { 
-            width: 50px; 
-            height: 50px; 
-        }
-        .label { 
-            min-width: 90px; 
-            font-size: 14px; 
-            padding: 8px 12px; 
-        }
+        .tier img, .unranked img { width: 50px; height: 50px; }
+        .label { min-width: 90px; font-size: 14px; padding: 8px 12px; }
     }
 </style>
 </head>
 <body>
 
 <h1 id="tierListTitle" contenteditable="true">My Tier List</h1>
-<input type="file" id="imageUpload" accept="image/*">
+<input type="file" id="imageUpload" accept="image/*" multiple>
 
 <div id="tiers"></div>
 
 <h3 style="margin-left: 10px;">Unranked</h3>
 <div class="unranked" id="unranked"></div>
+
+<!-- Crop Modal -->
+<div id="cropModal">
+    <div id="cropBox">
+        <canvas id="cropCanvas"></canvas>
+        <div id="cropControls">
+            <button id="cancelCrop">Cancel</button>
+            <button id="confirmCrop">OK</button>
+        </div>
+    </div>
+</div>
 
 <script>
 const tierData = [
@@ -121,20 +69,16 @@ function scoreToColor(score) {
 function createTier(score) {
     let container = document.createElement("div");
     container.className = "tier-container";
-
     let label = document.createElement("div");
     label.className = "label";
     label.style.background = scoreToColor(score);
     label.textContent = score;
-
     let tier = document.createElement("div");
     tier.className = "tier";
     tier.dataset.score = score;
-
     container.appendChild(label);
     container.appendChild(tier);
     document.getElementById("tiers").appendChild(container);
-
     enableDrop(tier);
 }
 
@@ -145,69 +89,108 @@ function enableDrop(area) {
     area.addEventListener("drop", e => {
         e.preventDefault();
         const id = e.dataTransfer.getData("text");
-        const img = document.getElementById(id);
-        area.appendChild(img);
+        const wrapper = document.getElementById(id);
+        area.appendChild(wrapper);
         saveData();
     });
-    area.addEventListener("touchmove", e => {
-        const touch = e.touches[0];
-        const target = document.elementFromPoint(touch.clientX, touch.clientY);
-        if (target && (target.classList.contains("tier") || target.classList.contains("unranked"))) {
-            e.preventDefault();
-        }
-    });
-    area.addEventListener("touchend", e => saveData());
 }
 
 enableDrop(document.getElementById("unranked"));
 
 let imgCount = 0;
 document.getElementById("imageUpload").addEventListener("change", e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-        const img = createDraggableImage(ev.target.result);
-        document.getElementById("unranked").appendChild(img);
-        saveData();
-    };
-    reader.readAsDataURL(file);
+    Array.from(e.target.files).forEach(file => {
+        if (!file.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            let img = new Image();
+            img.onload = () => {
+                let ratioDiff = Math.abs(img.width - img.height) / Math.max(img.width, img.height);
+                if (ratioDiff > 0.2) {
+                    openCropModal(img);
+                } else {
+                    addImageToUnranked(ev.target.result);
+                }
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
 });
 
 function createDraggableImage(src) {
-    const img = document.createElement("img");
-    img.src = src;
-    img.id = "img" + (++imgCount);
-    img.draggable = true;
-    img.addEventListener("dragstart", e => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "img-wrapper";
+    wrapper.id = "img" + (++imgCount);
+    wrapper.draggable = true;
+    wrapper.addEventListener("dragstart", e => {
         e.dataTransfer.setData("text", e.target.id);
     });
-    img.addEventListener("touchstart", e => {
-        img.style.position = "absolute";
-        img.style.zIndex = 1000;
-        function moveAt(pageX, pageY) {
-            img.style.left = pageX - img.offsetWidth / 2 + "px";
-            img.style.top = pageY - img.offsetHeight / 2 + "px";
-        }
-        function onTouchMove(ev) {
-            let touch = ev.touches[0];
-            moveAt(touch.pageX, touch.pageY);
-        }
-        document.addEventListener("touchmove", onTouchMove);
-        img.addEventListener("touchend", ev => {
-            document.removeEventListener("touchmove", onTouchMove);
-            img.style.position = "";
-            img.style.zIndex = "";
-            let touch = ev.changedTouches[0];
-            let dropTarget = document.elementFromPoint(touch.clientX, touch.clientY);
-            if (dropTarget && (dropTarget.classList.contains("tier") || dropTarget.classList.contains("unranked"))) {
-                dropTarget.appendChild(img);
-                saveData();
-            }
-        }, { once: true });
-    });
-    return img;
+    const img = document.createElement("img");
+    img.src = src;
+    const del = document.createElement("button");
+    del.className = "delete-btn";
+    del.textContent = "×";
+    del.onclick = () => { wrapper.remove(); saveData(); };
+    wrapper.appendChild(img);
+    wrapper.appendChild(del);
+    return wrapper;
 }
+
+function addImageToUnranked(src) {
+    document.getElementById("unranked").appendChild(createDraggableImage(src));
+    saveData();
+}
+
+// --- Crop tool ---
+let cropModal = document.getElementById("cropModal");
+let cropCanvas = document.getElementById("cropCanvas");
+let cropCtx = cropCanvas.getContext("2d");
+let cropImg, cropStartX = 0, cropStartY = 0, cropSize;
+
+function openCropModal(image) {
+    cropImg = image;
+    cropCanvas.width = image.width;
+    cropCanvas.height = image.height;
+    cropCtx.drawImage(image, 0, 0);
+    cropSize = Math.min(image.width, image.height);
+    cropStartX = (image.width - cropSize) / 2;
+    cropStartY = (image.height - cropSize) / 2;
+    drawCropSquare();
+    cropModal.style.display = "flex";
+
+    cropCanvas.onmousedown = e => {
+        let rect = cropCanvas.getBoundingClientRect();
+        let startX = e.clientX - rect.left;
+        let startY = e.clientY - rect.top;
+        cropCanvas.onmousemove = ev => {
+            let x = ev.clientX - rect.left;
+            let y = ev.clientY - rect.top;
+            cropStartX = Math.min(Math.max(0, x - cropSize/2), image.width - cropSize);
+            cropStartY = Math.min(Math.max(0, y - cropSize/2), image.height - cropSize);
+            drawCropSquare();
+        };
+    };
+    cropCanvas.onmouseup = () => cropCanvas.onmousemove = null;
+}
+
+function drawCropSquare() {
+    cropCtx.drawImage(cropImg, 0, 0);
+    cropCtx.strokeStyle = "red";
+    cropCtx.lineWidth = 3;
+    cropCtx.strokeRect(cropStartX, cropStartY, cropSize, cropSize);
+}
+
+document.getElementById("cancelCrop").onclick = () => cropModal.style.display = "none";
+
+document.getElementById("confirmCrop").onclick = () => {
+    let tempCanvas = document.createElement("canvas");
+    tempCanvas.width = 200;
+    tempCanvas.height = 200;
+    tempCanvas.getContext("2d").drawImage(cropImg, cropStartX, cropStartY, cropSize, cropSize, 0, 0, 200, 200);
+    addImageToUnranked(tempCanvas.toDataURL());
+    cropModal.style.display = "none";
+};
 
 function saveData() {
     let data = {
