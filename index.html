@@ -1,4 +1,4 @@
-<!-- Version 1.9 — Default Save State -->
+<!-- Version 1.9.1 — Fixed Island Toggle + Footer + Icon Alignment -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,12 +36,22 @@ h1{text-align:center;margin:10px;}
 .delete-btn{position:absolute;top:-6px;right:-6px;background:rgba(255,0,0,.9);color:#fff;border:0;border-radius:50%;width:20px;height:20px;line-height:20px;font-size:14px;cursor:pointer;}
 #island{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:#888;padding:10px;border-radius:12px;box-shadow:2px 2px 12px rgba(0,0,0,.4);z-index:1000;transition:width 0.3s,max-height 0.3s;overflow:hidden;width:250px;max-height:40px;display:flex;flex-direction:column;}
 #island.expanded{max-height:300px;width:400px;}
-#islandHeader{cursor:pointer;color:#fff;font-weight:bold;margin-bottom:5px;display:flex;align-items:center;gap:10px;}
+#islandHeader{
+    color:#fff;
+    font-weight:bold;
+    margin-bottom:5px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+}
+.icon-group{display:flex;gap:5px;}
 .icon-btn{width:28px;height:28px;border-radius:50%;display:flex;justify-content:center;align-items:center;background:#aaa;color:#fff;cursor:pointer;font-size:20px;transition:transform .15s;}
 .icon-btn:hover{transform:scale(1.2);}
 #islandContent{display:none;flex-direction:column;margin-top:10px;}
 #island.expanded #islandContent{display:flex;}
 .island-btn{margin:3px;padding:4px 6px;border:none;border-radius:4px;background:#aaa;color:#fff;cursor:pointer;}
+#versionFooter{text-align:center;font-size:12px;color:#aaa;margin:10px 0;}
 </style>
 </head>
 <body>
@@ -54,11 +64,13 @@ h1{text-align:center;margin:10px;}
 
 <div id="island">
   <div id="islandHeader">
-    Options
-    <div id="saveIcon" class="icon-btn material-icons" title="Save">save</div>
-    <div id="loadIcon" class="icon-btn material-icons" title="Load">folder_open</div>
-    <div id="addCatIcon" class="icon-btn material-icons" title="Add Category">add</div>
-    <div id="creditsIcon" class="icon-btn material-icons" title="Credits">info</div>
+    <span id="islandToggle" style="cursor:pointer;">Options</span>
+    <div class="icon-group">
+      <div id="saveIcon" class="icon-btn material-icons" title="Save">save</div>
+      <div id="loadIcon" class="icon-btn material-icons" title="Load">folder_open</div>
+      <div id="addCatIcon" class="icon-btn material-icons" title="Add Category">add</div>
+      <div id="creditsIcon" class="icon-btn material-icons" title="Credits">info</div>
+    </div>
   </div>
   <div id="islandContent">
     <div id="addCategoryPanel" style="display:none;margin-top:5px;">
@@ -72,9 +84,10 @@ h1{text-align:center;margin:10px;}
 </div>
 
 <input type="file" id="fileInput" accept=".json" style="display:none"/>
+<div id="versionFooter">Version 1.9.1 — Version Footer + Icon Alignment + Island Fix</div>
 
 <script>
-// ---------- DEFAULT DATA FROM JSON ----------
+// ---------- DEFAULT DATA ----------
 const defaultData = {
   "title": "My Tier List",
   "tiers": [
@@ -89,7 +102,6 @@ const defaultData = {
   "unranked": []
 };
 
-// ---------- TIERS ----------
 let selectedWrapper=null,imgCount=0;
 function createTier(score,name,color){
   let container=document.createElement("div");container.className="tier-container";
@@ -105,7 +117,6 @@ function createTier(score,name,color){
   container.appendChild(label);container.appendChild(tier);document.getElementById("tiers").appendChild(container);
   [label,tier].forEach(el=>{el.addEventListener("click",()=>{if(selectedWrapper){tier.appendChild(selectedWrapper);selectedWrapper.classList.remove("selected");selectedWrapper=null;saveData();}});});
 }
-
 function createImageWrapper(src){
   const wrap=document.createElement("div");wrap.className="img-wrapper";wrap.id="img"+(++imgCount);
   const img=document.createElement("img");img.src=src;
@@ -115,13 +126,11 @@ function createImageWrapper(src){
   wrap.addEventListener("click",()=>{if(wrap.closest(".tier")&&!wrap.closest("#unranked")){document.getElementById("unranked").appendChild(wrap);saveData();}else{selectedWrapper===wrap?selectedWrapper=null:selectWrapper(wrap);}});
   return wrap;
 }
-
 function selectWrapper(wrapper){
   if(selectedWrapper)selectedWrapper.classList.remove("selected");
   selectedWrapper=wrapper;
   if(wrapper)wrapper.classList.add("selected");
 }
-
 function saveData(){
   let data={title:document.getElementById("tierListTitle").innerText,tiers:[],unranked:[]};
   document.querySelectorAll(".tier-container").forEach(container=>{
@@ -131,7 +140,6 @@ function saveData(){
   data.unranked=Array.from(document.getElementById("unranked").querySelectorAll("img")).map(i=>i.src);
   localStorage.setItem("tierListData",JSON.stringify(data));
 }
-
 function loadData(){
   let saved=localStorage.getItem("tierListData");
   let data=saved?JSON.parse(saved):defaultData;
@@ -141,13 +149,31 @@ function loadData(){
   document.getElementById("unranked").innerHTML="";
   data.unranked.forEach(src=>document.getElementById("unranked").appendChild(createImageWrapper(src)));
 }
-
-// ---------- INIT ----------
 loadData();
 
-// ---------- SAVE/LOAD ----------
+// ---------- ISLAND TOGGLE ----------
+document.getElementById("islandToggle").addEventListener("click",()=>{
+  document.getElementById("island").classList.toggle("expanded");
+});
+document.getElementById("addCatIcon").addEventListener("click",()=>{
+  document.getElementById("addCategoryPanel").style.display="flex";
+  document.getElementById("creditsPanel").style.display="none";
+  document.getElementById("island").classList.add("expanded");
+});
+document.getElementById("creditsIcon").addEventListener("click",()=>{
+  document.getElementById("creditsPanel").style.display="block";
+  document.getElementById("addCategoryPanel").style.display="none";
+  document.getElementById("island").classList.add("expanded");
+});
+document.getElementById("createCategoryBtn").addEventListener("click",()=>{
+  const name=document.getElementById("newCategoryName").value||"New Tier";
+  createTier(Date.now(),name,"#888888");
+  document.getElementById("newCategoryName").value="";
+  saveData();
+});
 document.getElementById("saveIcon").addEventListener("click",()=>{
-  let data=saveData(); let blob=new Blob([localStorage.getItem("tierListData")],{type:"application/json"});
+  saveData();
+  let blob=new Blob([localStorage.getItem("tierListData")],{type:"application/json"});
   let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tierlist.json";a.click();
 });
 document.getElementById("loadIcon").addEventListener("click",()=>document.getElementById("fileInput").click());
