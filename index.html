@@ -1,4 +1,4 @@
-<!-- Version 1.9 — Edit Mode + Island Fixes + Removable Categories -->
+<!-- Version 1.10 — Text items + blur (save/load compatible) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -31,11 +31,30 @@ h1{text-align:center;margin:10px;}
 .remove-cat{width:18px;height:18px;display:flex;align-items:center;justify-content:center;background:red;color:white;border-radius:50%;font-size:14px;cursor:pointer;}
 .tier{display:flex;flex-wrap:wrap;gap:5px;padding:10px;min-height:80px;border-radius:12px;margin:5px 0;background:#fff;box-shadow:1px 1px 6px rgba(0,0,0,.2);flex:1;cursor:pointer;}
 .unranked{display:flex;flex-wrap:wrap;gap:5px;padding:10px;min-height:80px;background:#ddd;border:2px dashed #999;margin:5px 10px 20px;border-radius:12px;}
-.img-wrapper{position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;cursor:pointer;}
+.img-wrapper,.text-wrapper{position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;cursor:pointer;}
 .img-wrapper img{width:100%;height:100%;object-fit:cover;transition: transform .15s;}
 .img-wrapper:hover img{transform:scale(1.06);}
-.img-wrapper.selected{outline:3px solid #00e0ff;outline-offset:2px;}
+.img-wrapper.selected,.text-wrapper.selected{outline:3px solid #00e0ff;outline-offset:2px;}
 .delete-btn{position:absolute;top:-6px;right:-6px;background:rgba(255,0,0,.9);color:#fff;border:0;border-radius:50%;width:20px;height:20px;line-height:20px;font-size:14px;cursor:pointer;}
+
+/* Text item specific */
+.text-bg{
+  position:absolute;inset:0;border-radius:6px;
+  /* translucent tint; we’ll set background color inline per item */
+  background:rgba(0,0,0,.35);
+  /* nice blur of whatever is behind the item */
+  backdrop-filter: blur(6px);
+}
+.text-content{
+  position:relative;z-index:1;color:#fff;font-weight:700;
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  text-align:center;padding:6px;box-sizing:border-box;
+}
+.text-content span{
+  display:block;max-width:100%;max-height:100%;
+  word-wrap:break-word;overflow:hidden;
+  text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;
+}
 
 /* Island panel */
 #island{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:#888;padding:10px;border-radius:12px;box-shadow:2px 2px 12px rgba(0,0,0,.4);z-index:1000;transition:width 0.3s,max-height 0.3s;overflow:hidden;width:250px;max-height:40px;display:flex;flex-direction:column;}
@@ -46,12 +65,18 @@ h1{text-align:center;margin:10px;}
 #islandContent{display:none;flex-direction:column;margin-top:10px;}
 #island.expanded #islandContent{display:flex;}
 .island-btn{margin:3px;padding:4px 6px;border:none;border-radius:4px;background:#aaa;color:#fff;cursor:pointer;}
+.controls{display:flex;gap:10px;align-items:center;justify-content:center;margin:8px 10px;}
+.controls .material-icons{vertical-align:middle;}
 </style>
 </head>
 <body>
 
 <h1 id="tierListTitle" contenteditable="true">My Tier List</h1>
-<input type="file" id="imageUpload" accept="image/*" multiple>
+
+<div class="controls">
+  <input type="file" id="imageUpload" accept="image/*" multiple>
+  <button id="addTextBtn" class="island-btn"><span class="material-icons" style="font-size:16px">text_fields</span> Add Text</button>
+</div>
 
 <div id="tiers"></div>
 
@@ -62,11 +87,13 @@ h1{text-align:center;margin:10px;}
 <div id="island">
   <div id="islandHeader">
     Options
-    <div id="saveIcon" class="icon-btn material-icons" title="Save">save</div>
-    <div id="loadIcon" class="icon-btn material-icons" title="Load">folder_open</div>
-    <div id="addCatIcon" class="icon-btn material-icons" title="Add Category">add</div>
-    <div id="creditsIcon" class="icon-btn material-icons" title="Credits">info</div>
-    <div id="editModeToggle" class="icon-btn material-icons" title="Edit Mode">edit</div>
+    <div style="margin-left:auto;display:flex;gap:6px;">
+      <div id="saveIcon" class="icon-btn material-icons" title="Save">save</div>
+      <div id="loadIcon" class="icon-btn material-icons" title="Load">folder_open</div>
+      <div id="addCatIcon" class="icon-btn material-icons" title="Add Category">add</div>
+      <div id="creditsIcon" class="icon-btn material-icons" title="Credits">info</div>
+      <div id="editModeToggle" class="icon-btn material-icons" title="Edit Mode">edit</div>
+    </div>
   </div>
   <div id="islandContent">
     <div id="addCategoryPanel" style="display:none;margin-top:5px;">
@@ -81,7 +108,7 @@ h1{text-align:center;margin:10px;}
   </div>
 </div>
 
-<!-- Crop Overlay -->
+<!-- Crop Overlay (stub OK button keeps existing behavior) -->
 <div id="cropOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);justify-content:center;align-items:center;z-index:10000;display:flex;">
   <div style="position:relative;background:#fff;padding:10px;border-radius:8px;display:flex;flex-direction:column;align-items:center;">
     <img id="cropImage" style="max-width:80vw;max-height:80vh;object-fit:contain;"/>
@@ -95,7 +122,16 @@ h1{text-align:center;margin:10px;}
 // ---------- TIERS ----------
 let tierData=[20,17,15,12,8,0,-500];
 let editMode=false;
-function scoreToColor(score){if(score>=20) return "#ff0000";if(score>=17) return "#ff5500";if(score>=15) return "#ffff00";if(score>=12) return "#00ff00";if(score>=8) return "#0099ff";return "#555";}
+
+function scoreToColor(score){
+  if(score>=20) return "#ff0000";
+  if(score>=17) return "#ff5500";
+  if(score>=15) return "#ffff00";
+  if(score>=12) return "#00ff00";
+  if(score>=8)  return "#0099ff";
+  return "#555";
+}
+
 function createTier(score,name,color){
   let container=document.createElement("div");container.className="tier-container";
   let label=document.createElement("div");label.className="label";label.textContent=name||score;
@@ -103,15 +139,20 @@ function createTier(score,name,color){
 
   const colorPick=document.createElement("input"); colorPick.type="color"; colorPick.value=color||scoreToColor(score); colorPick.className="color-picker";
   const removeBtn=document.createElement("div"); removeBtn.className="remove-cat"; removeBtn.textContent="×";
-  removeBtn.addEventListener("click",(e)=>{e.stopPropagation(); container.remove(); saveData();});
+  removeBtn.addEventListener("click",(e)=>{e.stopPropagation(); 
+    // move all items to unranked before removing
+    const tierEl = container.querySelector(".tier");
+    Array.from(tierEl.children).forEach(ch=>document.getElementById("unranked").appendChild(ch));
+    container.remove(); saveDataToLocal();
+  });
 
   colorPick.addEventListener("click",(e)=>{
     if(editMode){
       let newName=prompt("Enter category name:", label.childNodes[0].textContent);
-      if(newName) label.childNodes[0].textContent=newName;
+      if(newName!==null) label.childNodes[0].textContent=newName;
     } else { e.stopPropagation(); }
   });
-  colorPick.addEventListener("input",()=>{if(editMode) label.style.background=colorPick.value; saveData();});
+  colorPick.addEventListener("input",()=>{if(editMode) label.style.background=colorPick.value; saveDataToLocal();});
 
   label.appendChild(colorPick);
   label.appendChild(removeBtn);
@@ -121,25 +162,72 @@ function createTier(score,name,color){
   let tier=document.createElement("div");tier.className="tier";tier.dataset.score=score;
   container.appendChild(label);container.appendChild(tier);document.getElementById("tiers").appendChild(container);
 
+  // click-to-place behavior (when not in edit mode)
   [label,tier].forEach(el=>{el.addEventListener("click",()=>{
-    if(!editMode && selectedWrapper){el.closest(".tier-container").querySelector(".tier").appendChild(selectedWrapper); selectedWrapper.classList.remove("selected"); selectedWrapper=null; saveData();}
+    if(!editMode && selectedWrapper){
+      el.closest(".tier-container").querySelector(".tier").appendChild(selectedWrapper);
+      selectedWrapper.classList.remove("selected"); selectedWrapper=null; saveDataToLocal();
+    }
   });});
   updateLabelDisplay(label);
   return container;
 }
 tierData.forEach(t=>createTier(t));
 
-// ---------- IMAGE SELECTION ----------
+// ---------- IMAGE/TEXT SELECTION ----------
 let imgCount=0, selectedWrapper=null, cropQueue=[], cropping=false;
 function selectWrapper(wrapper){if(selectedWrapper)selectedWrapper.classList.remove("selected");selectedWrapper=wrapper;if(wrapper)wrapper.classList.add("selected");}
+
 function createImageWrapper(src){
   const wrap=document.createElement("div");wrap.className="img-wrapper";wrap.id="img"+(++imgCount);
   const img=document.createElement("img");img.src=src;
   const del=document.createElement("button");del.className="delete-btn";del.textContent="×";
-  del.addEventListener("click", e=>{e.stopPropagation();wrap.remove(); if(selectedWrapper===wrap) selectedWrapper=null; saveData();});
+  del.addEventListener("click", e=>{e.stopPropagation();wrap.remove(); if(selectedWrapper===wrap) selectedWrapper=null; saveDataToLocal();});
   wrap.appendChild(img);wrap.appendChild(del);
-  wrap.addEventListener("click",()=>{if(!editMode){if(wrap.closest(".tier") && !wrap.closest("#unranked")){document.getElementById("unranked").appendChild(wrap); saveData();}else{selectWrapper(selectedWrapper===wrap?null:wrap);}}});
+  wrap.addEventListener("click",()=>{if(!editMode){if(wrap.closest(".tier") && !wrap.closest("#unranked")){document.getElementById("unranked").appendChild(wrap); saveDataToLocal();}else{selectWrapper(selectedWrapper===wrap?null:wrap);}}});
   return wrap;
+}
+
+function createTextWrapper(text, tintColor){
+  const wrap=document.createElement("div");wrap.className="text-wrapper";wrap.id="txt"+(++imgCount);
+
+  const bg=document.createElement("div");bg.className="text-bg";
+  // tint the blur with the chosen color (fallback to dark gray)
+  bg.style.background = (tintColor ? hexToRGBA(tintColor,0.45) : "rgba(0,0,0,.35)");
+  wrap.appendChild(bg);
+
+  const cont=document.createElement("div");cont.className="text-content";
+  const span=document.createElement("span");span.textContent=text;
+  cont.appendChild(span);wrap.appendChild(cont);
+
+  autoFitText(span, wrap);
+
+  const del=document.createElement("button");del.className="delete-btn";del.textContent="×";
+  del.addEventListener("click", e=>{e.stopPropagation();wrap.remove(); if(selectedWrapper===wrap) selectedWrapper=null; saveDataToLocal();});
+  wrap.appendChild(del);
+
+  wrap.addEventListener("click",()=>{if(!editMode){if(wrap.closest(".tier") && !wrap.closest("#unranked")){document.getElementById("unranked").appendChild(wrap); saveDataToLocal();}else{selectWrapper(selectedWrapper===wrap?null:wrap);}}});
+  return wrap;
+}
+
+function hexToRGBA(hex, alpha=0.5){
+  const h = hex.replace('#','');
+  const bigint = parseInt(h.length===3 ? h.split('').map(c=>c+c).join('') : h, 16);
+  const r = (bigint>>16)&255, g=(bigint>>8)&255, b=bigint&255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function autoFitText(span, holder){
+  // start from 16px and go down until fits
+  let size = 16;
+  span.style.fontSize = size + "px";
+  span.style.lineHeight = "1.1";
+  const maxW = holder.clientWidth - 8;
+  const maxH = holder.clientHeight - 8;
+  while((span.scrollWidth > maxW || span.scrollHeight > maxH) && size > 8){
+    size -= 1;
+    span.style.fontSize = size + "px";
+  }
 }
 
 // ---------- IMAGE UPLOAD ----------
@@ -148,56 +236,157 @@ function addToUnranked(src){
   imgObj.onload=()=>{
     let w=imgObj.width,h=imgObj.height;
     if(Math.abs(w-h)/Math.max(w,h)>0.2){ cropQueue.push(src); if(!cropping) showCrop(); }
-    else{ document.getElementById("unranked").appendChild(createImageWrapper(src)); saveData(); }
+    else{ document.getElementById("unranked").appendChild(createImageWrapper(src)); saveDataToLocal(); }
   }
 }
 function showCrop(){if(cropQueue.length==0){cropping=false; return;} cropping=true; document.getElementById("cropOverlay").style.display="flex"; document.getElementById("cropImage").src=cropQueue.shift();}
 document.getElementById("cropButton").addEventListener("click",()=>{
   let src=document.getElementById("cropImage").src;
-  document.getElementById("unranked").appendChild(createImageWrapper(src)); saveData();
+  document.getElementById("unranked").appendChild(createImageWrapper(src)); saveDataToLocal();
   document.getElementById("cropOverlay").style.display="none"; if(cropQueue.length>0) showCrop(); else cropping=false;
 });
-document.getElementById("imageUpload").addEventListener("change", e=>{Array.from(e.target.files||[]).forEach(file=>{if(!file.type.startsWith("image/")) return; const reader=new FileReader(); reader.onload=ev=>addToUnranked(ev.target.result); reader.readAsDataURL(file);});});
+document.getElementById("imageUpload").addEventListener("change", e=>{
+  Array.from(e.target.files||[]).forEach(file=>{
+    if(!file.type.startsWith("image/")) return;
+    const reader=new FileReader();
+    reader.onload=ev=>addToUnranked(ev.target.result);
+    reader.readAsDataURL(file);
+  });
+});
+
+// ---------- ADD TEXT BUTTON ----------
+document.getElementById("addTextBtn").addEventListener("click", ()=>{
+  const txt = prompt("Enter text:");
+  if(!txt) return;
+  // if a tier is selected (by selecting an item), we can try to tint based on its label color; else default.
+  let tint = "#555";
+  const anyTier = document.querySelector(".tier-container");
+  if(anyTier){
+    // get first tier's color as default
+    tint = anyTier.querySelector(".label").style.background || "#555";
+  }
+  const node = createTextWrapper(txt, tint);
+  document.getElementById("unranked").appendChild(node);
+  saveDataToLocal();
+});
 
 // ---------- SAVE/LOAD ----------
-function saveData(){
+/* New format:
+{
+  title,
+  tiers:[ {score,name,color, items:[ {type:'img',src}, {type:'text', text, tint} ] } ],
+  unranked:[ {type:'img',src} | {type:'text',text,tint} ]
+}
+We also still read old format (imgs:[]) for compatibility.
+*/
+function collectItemsFrom(parent){
+  const items = [];
+  Array.from(parent.children).forEach(ch=>{
+    if(ch.classList.contains("img-wrapper")){
+      items.push({type:"img", src: ch.querySelector("img").src});
+    } else if(ch.classList.contains("text-wrapper")){
+      const span = ch.querySelector(".text-content span");
+      const tintBG = ch.querySelector(".text-bg").style.background || "rgba(0,0,0,.35)";
+      items.push({type:"text", text: span ? span.textContent : "", tint: tintBG});
+    }
+  });
+  return items;
+}
+
+function renderItemsTo(parent, items){
+  items.forEach(it=>{
+    if(it.type==="img" && it.src){
+      parent.appendChild(createImageWrapper(it.src));
+    } else if(it.type==="text" && it.text){
+      // try to recover a color out of rgba() if present
+      let tint = "#555";
+      if(it.tint && it.tint.startsWith("rgba")){
+        // leave as rgba; createTextWrapper accepts hex; but we can pass rgba by extracting approximate hex or pass null and set bg after
+        const node = createTextWrapper(it.text, "#555");
+        node.querySelector(".text-bg").style.background = it.tint;
+        parent.appendChild(node);
+        return;
+      }
+      parent.appendChild(createTextWrapper(it.text, it.tint || "#555"));
+    }
+  });
+}
+
+function saveDataToLocal(){
   let data={title:document.getElementById("tierListTitle").innerText,tiers:[],unranked:[]};
   document.querySelectorAll(".tier-container").forEach(container=>{
     let tier=container.querySelector(".tier"),label=container.querySelector(".label");
-    data.tiers.push({score:tier.dataset.score,name:label.childNodes[0].textContent,color:label.style.background,imgs:Array.from(tier.querySelectorAll("img")).map(i=>i.src)});
+    const items = collectItemsFrom(tier);
+    data.tiers.push({
+      score: tier.dataset.score,
+      name: label.childNodes[0].textContent,
+      color: label.style.background,
+      items,
+      // legacy field for compatibility (optional)
+      imgs: items.filter(i=>i.type==="img").map(i=>i.src)
+    });
   });
-  data.unranked=Array.from(document.getElementById("unranked").querySelectorAll("img")).map(i=>i.src);
+  data.unranked = collectItemsFrom(document.getElementById("unranked"));
+  localStorage.setItem("tierListData", JSON.stringify(data));
   return data;
 }
+
+function loadFromData(data){
+  document.getElementById("tierListTitle").innerText=data.title||"My Tier List";
+  // rebuild tiers
+  const tiersRoot = document.getElementById("tiers");
+  tiersRoot.innerHTML = "";
+  (data.tiers||[]).forEach(t=>{
+    const container = createTier(t.score, t.name, t.color);
+    const tierEl = container.querySelector(".tier");
+    if(t.items && t.items.length){
+      renderItemsTo(tierEl, t.items);
+    } else if(t.imgs && t.imgs.length){
+      // legacy
+      t.imgs.forEach(src=>tierEl.appendChild(createImageWrapper(src)));
+    }
+  });
+  // unranked
+  const un = document.getElementById("unranked");
+  un.innerHTML = "";
+  if(Array.isArray(data.unranked) && data.unranked.length){
+    renderItemsTo(un, data.unranked);
+  }
+}
+
 document.getElementById("saveIcon").addEventListener("click",()=>{
-  let data=saveData(); let blob=new Blob([JSON.stringify(data)],{type:"application/json"}); let a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="tierlist.json"; a.click();
+  let data=saveDataToLocal();
+  let blob=new Blob([JSON.stringify(data)],{type:"application/json"});
+  let a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="tierlist.json"; a.click();
 });
+
 document.getElementById("loadIcon").addEventListener("click",()=>document.getElementById("fileInput").click());
 document.getElementById("fileInput").addEventListener("change",e=>{
   let file=e.target.files[0]; if(!file) return;
   let reader=new FileReader();
   reader.onload=ev=>{
-    let data=JSON.parse(ev.target.result);
-    document.getElementById("tierListTitle").innerText=data.title||"My Tier List";
-    document.querySelectorAll(".tier-container").forEach((container,idx)=>{
-      let tdata=data.tiers?.[idx]; if(!tdata) return;
-      let tier=container.querySelector(".tier"),label=container.querySelector(".label");
-      tier.innerHTML=""; label.childNodes[0].textContent=tdata.name||label.childNodes[0].textContent; label.style.background=tdata.color||label.style.background;
-      (tdata.imgs||[]).forEach(src=>tier.appendChild(createImageWrapper(src)));
-    });
-    document.getElementById("unranked").innerHTML="";
-    (data.unranked||[]).forEach(src=>addToUnranked(src));
-  }; reader.readAsText(file);
+    try{
+      let data=JSON.parse(ev.target.result);
+      localStorage.setItem("tierListData", JSON.stringify(data));
+      loadFromData(data);
+    }catch(err){ alert("Invalid JSON file"); }
+  };
+  reader.readAsText(file);
 });
 
 // ---------- ISLAND PANEL ----------
 const island=document.getElementById("island");const header=document.getElementById("islandHeader");
-header.addEventListener("click",()=>island.classList.toggle("expanded"));
+header.addEventListener("click",(ev)=>{
+  // Don’t toggle when clicking the icons
+  if(ev.target.closest(".icon-btn")) return;
+  island.classList.toggle("expanded");
+});
 document.getElementById("addCatIcon").addEventListener("click",()=>{document.getElementById("addCategoryPanel").style.display="flex"; document.getElementById("creditsPanel").style.display="none"; island.classList.add("expanded");});
 document.getElementById("creditsIcon").addEventListener("click",()=>{document.getElementById("creditsPanel").style.display="block"; document.getElementById("addCategoryPanel").style.display="none"; island.classList.add("expanded");});
 document.getElementById("createCategoryBtn").addEventListener("click",()=>{
   const name=document.getElementById("newCategoryName").value||"New Tier";
   createTier(Date.now(),name); document.getElementById("newCategoryName").value="";
+  saveDataToLocal();
 });
 
 // ---------- EDIT MODE TOGGLE ----------
@@ -211,9 +400,20 @@ function updateLabelDisplay(label){
   if(editMode){ label.querySelector(".remove-cat").style.display="flex"; label.querySelector(".color-picker").style.display="inline-block";}
   else{ label.querySelector(".remove-cat").style.display="none"; label.querySelector(".color-picker").style.display="none";}
 }
+
+// ---------- INITIAL LOAD ----------
+(function init(){
+  const saved = localStorage.getItem("tierListData");
+  if(saved){
+    try{ loadFromData(JSON.parse(saved)); return; }catch(e){}
+  }
+  // build defaults (original scores)
+  document.getElementById("tiers").innerHTML = "";
+  tierData.forEach(s=>createTier(s));
+})();
 </script>
 
-<footer style="position:fixed;right:10px;bottom:10px;background:rgba(100,100,100,.55);color:#fff;font-size:12px;padding:4px 8px;border-radius:8px;opacity:.85;z-index:100000;">Version 1.9 — Edit Mode + Island Fixes + Removable Categories</footer>
+<footer style="position:fixed;right:10px;bottom:10px;background:rgba(100,100,100,.55);color:#fff;font-size:12px;padding:4px 8px;border-radius:8px;opacity:.85;z-index:100000;">Version 1.10 — Text items + blur</footer>
 
 </body>
 </html>
