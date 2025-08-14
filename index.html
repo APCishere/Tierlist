@@ -1,478 +1,219 @@
-<!-- Version 1.9.2 — Fixes: island toggle, icons hide when collapsed, cropping queue + touch pan, text items restored + blur, edit mode + removable categories -->
+<!-- Version 1.9 — Edit Mode + Island Fixes + Removable Categories -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Tier List</title>
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <style>
-  :root{--island-bg:#888;--icon-bg:#aaa;}
-  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f4f4;color:#111}
-  h1{text-align:center;margin:12px 0}
-  .tier-container{display:flex;align-items:center;flex-wrap:wrap;margin:6px 10px;}
-  .label{
-    min-width:120px;padding:10px 14px;margin-right:8px;text-align:center;font-weight:700;border-radius:12px;
-    color:#fff;font-size:15px;box-shadow:2px 2px 8px rgba(0,0,0,.3);cursor:pointer;
+body{margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4;}
+h1{text-align:center;margin:10px;}
+
+.tier-container{display:flex;align-items:center;flex-wrap:wrap;margin:5px 10px;}
+.label{
+    min-width:120px;
+    padding:10px 15px;
+    margin-right:5px;
+    text-align:center;
+    font-weight:bold;
+    border-radius:12px;
+    color:#fff;
+    font-size:16px;
+    box-shadow:2px 2px 8px rgba(0,0,0,.3);
+    cursor:pointer;
     text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;
-    display:flex;align-items:center;justify-content:center;gap:8px;position:relative;
-  }
-  .label .name{flex:0 1 auto}
-  .color-picker{width:18px;height:18px;border-radius:50%;border:2px solid #000;cursor:pointer;display:none}
-  .remove-cat{width:20px;height:20px;border-radius:50%;display:none;align-items:center;justify-content:center;background:#c33;color:#fff;font-weight:700;cursor:pointer;border:0}
-  .tier{display:flex;flex-wrap:wrap;gap:6px;padding:10px;min-height:84px;border-radius:12px;margin:5px 0;background:#fff;box-shadow:1px 1px 6px rgba(0,0,0,.15);flex:1;cursor:pointer}
-  .unranked{display:flex;flex-wrap:wrap;gap:6px;padding:10px;min-height:90px;background:#e7e7e7;border:2px dashed #bdbdbd;margin:8px 10px 20px;border-radius:12px}
-  .img-wrapper,.text-wrapper{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;cursor:pointer}
-  .img-wrapper img{width:100%;height:100%;object-fit:cover;display:block}
-  .img-wrapper.selected,.text-wrapper.selected{outline:3px solid #08d4ff;outline-offset:3px}
-  .delete-btn{position:absolute;top:-8px;right:-8px;background:rgba(255,0,0,.95);color:#fff;border:0;border-radius:50%;width:22px;height:22px;line-height:22px;font-size:14px;cursor:pointer}
-  /* text entry styling: blurred tinted bg */
-  .text-bg{position:absolute;inset:0;z-index:0;border-radius:8px;filter:blur(6px) saturate(110%);transform:scale(1.02)}
-  .text-content{position:relative;z-index:1;padding:6px;color:#fff;font-weight:700;text-align:center;display:flex;align-items:center;justify-content:center;width:100%;height:100%;box-sizing:border-box}
-  .text-content span{text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000;display:block;width:90%}
-  /* island */
-  #island{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--island-bg);color:#fff;padding:10px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:9999;width:260px;max-height:46px;overflow:hidden;transition:width .25s,max-height .25s}
-  #island.expanded{width:420px;max-height:420px}
-  #islandHeader{display:flex;align-items:center;justify-content:space-between;gap:10px}
-  #islandHeader .title{font-weight:700}
-  .icon-group{display:flex;gap:8px;align-items:center}
-  .icon-btn{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:#fff;font-size:18px;cursor:pointer;opacity:0;pointer-events:none;transition:transform .12s,opacity .12s}
-  #island.expanded .icon-btn{opacity:1;pointer-events:auto}
-  .icon-btn:active{transform:scale(.95)}
-  #islandContent{display:none;margin-top:10px}
-  #island.expanded #islandContent{display:block}
-  .island-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .island-btn{padding:6px 8px;border-radius:6px;border:0;background:#b3b3b3;color:#fff;cursor:pointer}
-  /* crop overlay */
-  #cropOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10010;align-items:center;justify-content:center}
-  #cropBox{position:relative;background:#111;padding:12px;border-radius:10px;display:flex;flex-direction:column;align-items:center}
-  #cropArea{position:relative;width: min(84vw,84vh); height: min(84vw,84vh); max-width:640px; max-height:640px; background:#222; overflow:hidden; border-radius:8px; touch-action:none}
-  #cropArea .cropImg{position:absolute; top:0; left:0; user-select:none; -webkit-user-drag:none; will-change:transform}
-  #cropControls{margin-top:10px;display:flex;gap:8px}
-  /* footer version centered */
-  #versionFooter{position:fixed;left:50%;transform:translateX(-50%);bottom:6px;color:#b3b3b3;font-size:12px;z-index:9998}
-  @media (max-width:540px){
-    .label{min-width:90px;font-size:14px;padding:8px}
-    .img-wrapper,.text-wrapper{width:52px;height:52px}
-    #island{width:92%}
-    #island.expanded{width:92%}
-  }
+    display:flex;
+    align-items:center;
+    gap:5px;
+}
+.color-picker{width:18px;height:18px;border:2px solid #000;border-radius:50%;cursor:pointer;}
+.remove-cat{width:18px;height:18px;display:flex;align-items:center;justify-content:center;background:red;color:white;border-radius:50%;font-size:14px;cursor:pointer;}
+.tier{display:flex;flex-wrap:wrap;gap:5px;padding:10px;min-height:80px;border-radius:12px;margin:5px 0;background:#fff;box-shadow:1px 1px 6px rgba(0,0,0,.2);flex:1;cursor:pointer;}
+.unranked{display:flex;flex-wrap:wrap;gap:5px;padding:10px;min-height:80px;background:#ddd;border:2px dashed #999;margin:5px 10px 20px;border-radius:12px;}
+.img-wrapper{position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;cursor:pointer;}
+.img-wrapper img{width:100%;height:100%;object-fit:cover;transition: transform .15s;}
+.img-wrapper:hover img{transform:scale(1.06);}
+.img-wrapper.selected{outline:3px solid #00e0ff;outline-offset:2px;}
+.delete-btn{position:absolute;top:-6px;right:-6px;background:rgba(255,0,0,.9);color:#fff;border:0;border-radius:50%;width:20px;height:20px;line-height:20px;font-size:14px;cursor:pointer;}
+
+/* Island panel */
+#island{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);background:#888;padding:10px;border-radius:12px;box-shadow:2px 2px 12px rgba(0,0,0,.4);z-index:1000;transition:width 0.3s,max-height 0.3s;overflow:hidden;width:250px;max-height:40px;display:flex;flex-direction:column;}
+#island.expanded{max-height:300px;width:400px;}
+#islandHeader{cursor:pointer;color:#fff;font-weight:bold;margin-bottom:5px;display:flex;align-items:center;gap:10px;}
+.icon-btn{width:28px;height:28px;border-radius:50%;display:flex;justify-content:center;align-items:center;background:#aaa;color:#fff;cursor:pointer;font-size:20px;transition:transform .15s;opacity:0;}
+#island.expanded .icon-btn{opacity:1;}
+#islandContent{display:none;flex-direction:column;margin-top:10px;}
+#island.expanded #islandContent{display:flex;}
+.island-btn{margin:3px;padding:4px 6px;border:none;border-radius:4px;background:#aaa;color:#fff;cursor:pointer;}
 </style>
 </head>
 <body>
 
 <h1 id="tierListTitle" contenteditable="true">My Tier List</h1>
-
-<div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-bottom:8px">
-  <input id="imageUpload" type="file" accept="image/*" multiple />
-  <button id="openIslandBtn" class="island-btn">Menu</button>
-</div>
+<input type="file" id="imageUpload" accept="image/*" multiple>
 
 <div id="tiers"></div>
 
-<h3 style="margin-left:12px;margin-top:6px">Unranked</h3>
+<h3 style="margin-left:10px;">Unranked</h3>
 <div class="unranked" id="unranked"></div>
 
-<!-- Island -->
-<div id="island" aria-hidden="false">
+<!-- Island Panel -->
+<div id="island">
   <div id="islandHeader">
-    <div class="title">Options</div>
-    <div class="icon-group" aria-hidden="true">
-      <div id="saveIcon" class="icon-btn material-icons" title="Save">save</div>
-      <div id="loadIcon" class="icon-btn material-icons" title="Load">folder_open</div>
-      <div id="addTextIcon" class="icon-btn material-icons" title="Add Text">text_fields</div>
-      <div id="addCatIcon" class="icon-btn material-icons" title="Add Category">add</div>
-      <div id="editModeToggle" class="icon-btn material-icons" title="Edit Mode">edit</div>
-      <div id="creditsIcon" class="icon-btn material-icons" title="Credits">info</div>
-    </div>
+    Options
+    <div id="saveIcon" class="icon-btn material-icons" title="Save">save</div>
+    <div id="loadIcon" class="icon-btn material-icons" title="Load">folder_open</div>
+    <div id="addCatIcon" class="icon-btn material-icons" title="Add Category">add</div>
+    <div id="creditsIcon" class="icon-btn material-icons" title="Credits">info</div>
+    <div id="editModeToggle" class="icon-btn material-icons" title="Edit Mode">edit</div>
   </div>
-
   <div id="islandContent">
-    <div class="island-row" id="addCategoryPanel" style="display:none">
-      <input id="newCategoryName" placeholder="Category name" />
-      <button id="createCategoryBtn" class="island-btn">Create</button>
+    <div id="addCategoryPanel" style="display:none;margin-top:5px;">
+      <label>Category Name: <input type="text" id="newCategoryName"/></label><br>
+      <div id="bgColors"></div>
+      <button id="createCategoryBtn" class="island-btn">Create Category</button>
     </div>
 
-    <div class="island-row" style="margin-top:8px">
-      <button id="expandCropQueueBtn" class="island-btn" style="display:none">Crop queue: <span id="cropQueueCount">0</span></button>
-      <button id="clearLocalBtn" class="island-btn">Reset to Default</button>
-      <div style="flex:1"></div>
-      <div id="creditsPanel" style="display:none;color:#eee;font-size:13px">Made by AI — GPT-5 Mini, OpenAI.</div>
+    <div id="creditsPanel" style="display:none;margin-top:5px;color:white;">
+      Made by AI — GPT-5 Mini, OpenAI.
     </div>
   </div>
 </div>
 
-<!-- Crop overlay -->
-<div id="cropOverlay" role="dialog" aria-modal="true">
-  <div id="cropBox">
-    <div id="cropArea">
-      <img id="cropImg" class="cropImg" draggable="false" alt="Crop source" />
-    </div>
-    <div id="cropControls">
-      <button id="cropCancel" class="island-btn">Cancel</button>
-      <button id="cropOk" class="island-btn">OK</button>
-    </div>
+<!-- Crop Overlay -->
+<div id="cropOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);justify-content:center;align-items:center;z-index:10000;display:flex;">
+  <div style="position:relative;background:#fff;padding:10px;border-radius:8px;display:flex;flex-direction:column;align-items:center;">
+    <img id="cropImage" style="max-width:80vw;max-height:80vh;object-fit:contain;"/>
+    <button id="cropButton" class="island-btn" style="margin-top:5px;">OK</button>
   </div>
 </div>
 
-<input type="file" id="fileInput" accept=".json" style="display:none" />
-<div id="versionFooter">Version 1.9.2 — Fixes: island/crop/touch/text</div>
+<input type="file" id="fileInput" accept=".json" style="display:none"/>
 
 <script>
-/* ---------- DEFAULT DATA (embedded save file) ---------- */
-const defaultData = {
-  title: "My Tier List",
-  tiers: [
-    { score: 20, name: "S", color: "#ff0000", items: [] },
-    { score: 17, name: "A", color: "#ff5500", items: [] },
-    { score: 15, name: "B", color: "#ffff00", items: [] },
-    { score: 12, name: "C", color: "#00ff00", items: [] },
-    { score: 8,  name: "D", color: "#0099ff", items: [] },
-    { score: 0,  name: "E", color: "#555555", items: [] },
-    { score: -500,name: "F", color: "#333333", items: [] }
-  ],
-  unranked: []
-};
+// ---------- TIERS ----------
+let tierData=[20,17,15,12,8,0,-500];
+let editMode=false;
+function scoreToColor(score){if(score>=20) return "#ff0000";if(score>=17) return "#ff5500";if(score>=15) return "#ffff00";if(score>=12) return "#00ff00";if(score>=8) return "#0099ff";return "#555";}
+function createTier(score,name,color){
+  let container=document.createElement("div");container.className="tier-container";
+  let label=document.createElement("div");label.className="label";label.textContent=name||score;
+  label.style.background=color||scoreToColor(score);
 
-/* ---------- State ---------- */
-let editMode = false;
-let cropQueue = [];
-let cropping = false;
-let selectedWrapper = null;
-let imgCounter = 0;
+  const colorPick=document.createElement("input"); colorPick.type="color"; colorPick.value=color||scoreToColor(score); colorPick.className="color-picker";
+  const removeBtn=document.createElement("div"); removeBtn.className="remove-cat"; removeBtn.textContent="×";
+  removeBtn.addEventListener("click",(e)=>{e.stopPropagation(); container.remove(); saveData();});
 
-/* ---------- Helpers ---------- */
-function shadeColor(hex, percent) {
-  // hex #rrggbb
-  let f = parseInt(hex.slice(1),16), t = percent < 0 ? 0 : 255, p = Math.abs(percent)/100;
-  let R = f>>16, G = f>>8 & 0xFF, B = f & 0xFF;
-  return "#" + (0x1000000 + (Math.round((t-R)*p)+R)*0x10000 + (Math.round((t-G)*p)+G)*0x100 + (Math.round((t-B)*p)+B)).toString(16).slice(1);
-}
-function adjustTextSize(span, text) {
-  const len = text.length;
-  if(len > 30) span.style.fontSize = "10px";
-  else if(len > 20) span.style.fontSize = "12px";
-  else if(len > 12) span.style.fontSize = "14px";
-  else span.style.fontSize = "16px";
-}
-
-/* ---------- DOM create functions ---------- */
-function createTier(score, name, color) {
-  const container = document.createElement("div");
-  container.className = "tier-container";
-
-  const label = document.createElement("div");
-  label.className = "label";
-  label.style.background = color || "#888";
-  const nameSpan = document.createElement("span");
-  nameSpan.className = "name";
-  nameSpan.textContent = name ?? score;
-  label.appendChild(nameSpan);
-
-  const colorPick = document.createElement("input");
-  colorPick.type = "color";
-  colorPick.className = "color-picker";
-  colorPick.value = color || "#888888";
-  colorPick.addEventListener("input", (e)=>{
-    label.style.background = colorPick.value;
-    persistSaveDebounced();
-  });
-  colorPick.addEventListener("click", (ev)=>{
+  colorPick.addEventListener("click",(e)=>{
     if(editMode){
-      ev.stopPropagation();
-      const newName = prompt("Edit category name:", nameSpan.textContent);
-      if(newName !== null) nameSpan.textContent = newName;
-    } else {
-      // if not in editMode prevent accidental click
-      ev.stopPropagation();
-    }
+      let newName=prompt("Enter category name:", label.childNodes[0].textContent);
+      if(newName) label.childNodes[0].textContent=newName;
+    } else { e.stopPropagation(); }
   });
+  colorPick.addEventListener("input",()=>{if(editMode) label.style.background=colorPick.value; saveData();});
+
   label.appendChild(colorPick);
-
-  const removeBtn = document.createElement("button");
-  removeBtn.className = "remove-cat";
-  removeBtn.title = "Remove category";
-  removeBtn.textContent = "×";
-  removeBtn.addEventListener("click", (ev)=>{
-    ev.stopPropagation();
-    if(!confirm("Remove this category? Remaining items will move to Unranked.")) return;
-    // move items to unranked
-    const tierEl = container.querySelector(".tier");
-    const items = Array.from(tierEl.children);
-    items.forEach(it => {
-      document.getElementById("unranked").appendChild(it);
-    });
-    container.remove();
-    persistSaveDebounced();
-  });
   label.appendChild(removeBtn);
+  removeBtn.style.display="none";
+  colorPick.style.display="none";
 
-  // initial hide
-  colorPick.style.display = editMode ? "inline-block" : "none";
-  removeBtn.style.display = editMode ? "flex" : "none";
+  let tier=document.createElement("div");tier.className="tier";tier.dataset.score=score;
+  container.appendChild(label);container.appendChild(tier);document.getElementById("tiers").appendChild(container);
 
-  const tier = document.createElement("div");
-  tier.className = "tier";
-  tier.dataset.score = score;
-
-  // clicking label/tier places selected item (only when not in editMode)
-  [label, tier].forEach(el => {
-    el.addEventListener("click", ()=>{
-      if(editMode) return;
-      if(selectedWrapper){
-        tier.appendChild(selectedWrapper);
-        selectedWrapper.classList.remove("selected");
-        selectedWrapper = null;
-        persistSaveDebounced();
-      }
-    });
-  });
-
-  container.appendChild(label);
-  container.appendChild(tier);
-  document.getElementById("tiers").appendChild(container);
-
-  return {container, tierEl: tier, labelEl: label, colorPick, removeBtn, nameSpan};
+  [label,tier].forEach(el=>{el.addEventListener("click",()=>{
+    if(!editMode && selectedWrapper){el.closest(".tier-container").querySelector(".tier").appendChild(selectedWrapper); selectedWrapper.classList.remove("selected"); selectedWrapper=null; saveData();}
+  });});
+  updateLabelDisplay(label);
+  return container;
 }
+tierData.forEach(t=>createTier(t));
 
+// ---------- IMAGE SELECTION ----------
+let imgCount=0, selectedWrapper=null, cropQueue=[], cropping=false;
+function selectWrapper(wrapper){if(selectedWrapper)selectedWrapper.classList.remove("selected");selectedWrapper=wrapper;if(wrapper)wrapper.classList.add("selected");}
 function createImageWrapper(src){
-  const wrap = document.createElement("div");
-  wrap.className = "img-wrapper";
-  wrap.id = "img" + (++imgCounter);
-  const img = document.createElement("img");
-  img.draggable = false;
-  img.src = src;
-  const del = document.createElement("button");
-  del.className = "delete-btn";
-  del.innerText = "×";
-  del.addEventListener("click", e=>{
-    e.stopPropagation();
-    wrap.remove();
-    if(selectedWrapper === wrap) selectedWrapper = null;
-    persistSaveDebounced();
-  });
-  wrap.appendChild(img);
-  wrap.appendChild(del);
-
-  wrap.addEventListener("click", (e)=>{
-    if(editMode) return;
-    if(wrap.closest(".tier") && !wrap.closest("#unranked")){
-      document.getElementById("unranked").appendChild(wrap);
-      persistSaveDebounced();
-      return;
-    }
-    // select/deselect
-    if(selectedWrapper === wrap) { selectWrapper(null); }
-    else selectWrapper(wrap);
-  });
-
+  const wrap=document.createElement("div");wrap.className="img-wrapper";wrap.id="img"+(++imgCount);
+  const img=document.createElement("img");img.src=src;
+  const del=document.createElement("button");del.className="delete-btn";del.textContent="×";
+  del.addEventListener("click", e=>{e.stopPropagation();wrap.remove(); if(selectedWrapper===wrap) selectedWrapper=null; saveData();});
+  wrap.appendChild(img);wrap.appendChild(del);
+  wrap.addEventListener("click",()=>{if(!editMode){if(wrap.closest(".tier") && !wrap.closest("#unranked")){document.getElementById("unranked").appendChild(wrap); saveData();}else{selectWrapper(selectedWrapper===wrap?null:wrap);}}});
   return wrap;
 }
 
-function createTextWrapper(text, color){
-  const wrap = document.createElement("div");
-  wrap.className = "text-wrapper";
-  wrap.id = "txt" + (++imgCounter);
+// ---------- IMAGE UPLOAD ----------
+function addToUnranked(src){
+  let imgObj=new Image(); imgObj.src=src;
+  imgObj.onload=()=>{
+    let w=imgObj.width,h=imgObj.height;
+    if(Math.abs(w-h)/Math.max(w,h)>0.2){ cropQueue.push(src); if(!cropping) showCrop(); }
+    else{ document.getElementById("unranked").appendChild(createImageWrapper(src)); saveData(); }
+  }
+}
+function showCrop(){if(cropQueue.length==0){cropping=false; return;} cropping=true; document.getElementById("cropOverlay").style.display="flex"; document.getElementById("cropImage").src=cropQueue.shift();}
+document.getElementById("cropButton").addEventListener("click",()=>{
+  let src=document.getElementById("cropImage").src;
+  document.getElementById("unranked").appendChild(createImageWrapper(src)); saveData();
+  document.getElementById("cropOverlay").style.display="none"; if(cropQueue.length>0) showCrop(); else cropping=false;
+});
+document.getElementById("imageUpload").addEventListener("change", e=>{Array.from(e.target.files||[]).forEach(file=>{if(!file.type.startsWith("image/")) return; const reader=new FileReader(); reader.onload=ev=>addToUnranked(ev.target.result); reader.readAsDataURL(file);});});
 
-  const bg = document.createElement("div");
-  bg.className = "text-bg";
-  // main tint + secondary shade
-  const main = color || "#777777";
-  const sec = shadeColor(main, -20);
-  bg.style.background = `linear-gradient(135deg, ${main}66, ${sec}66)`;
-  wrap.appendChild(bg);
-
-  const cont = document.createElement("div");
-  cont.className = "text-content";
-  const span = document.createElement("span"); span.textContent = text;
-  adjustTextSize(span, text);
-  cont.appendChild(span);
-  wrap.appendChild(cont);
-
-  const del = document.createElement("button"); del.className = "delete-btn"; del.innerText = "×";
-  del.addEventListener("click", e=>{
-    e.stopPropagation();
-    wrap.remove();
-    if(selectedWrapper === wrap) selectedWrapper = null;
-    persistSaveDebounced();
+// ---------- SAVE/LOAD ----------
+function saveData(){
+  let data={title:document.getElementById("tierListTitle").innerText,tiers:[],unranked:[]};
+  document.querySelectorAll(".tier-container").forEach(container=>{
+    let tier=container.querySelector(".tier"),label=container.querySelector(".label");
+    data.tiers.push({score:tier.dataset.score,name:label.childNodes[0].textContent,color:label.style.background,imgs:Array.from(tier.querySelectorAll("img")).map(i=>i.src)});
   });
-  wrap.appendChild(del);
-
-  wrap.addEventListener("click", e=>{
-    if(editMode) return;
-    if(wrap.closest(".tier") && !wrap.closest("#unranked")){
-      document.getElementById("unranked").appendChild(wrap); persistSaveDebounced(); return;
-    }
-    if(selectedWrapper === wrap) selectWrapper(null); else selectWrapper(wrap);
-  });
-
-  return wrap;
+  data.unranked=Array.from(document.getElementById("unranked").querySelectorAll("img")).map(i=>i.src);
+  return data;
 }
+document.getElementById("saveIcon").addEventListener("click",()=>{
+  let data=saveData(); let blob=new Blob([JSON.stringify(data)],{type:"application/json"}); let a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="tierlist.json"; a.click();
+});
+document.getElementById("loadIcon").addEventListener("click",()=>document.getElementById("fileInput").click());
+document.getElementById("fileInput").addEventListener("change",e=>{
+  let file=e.target.files[0]; if(!file) return;
+  let reader=new FileReader();
+  reader.onload=ev=>{
+    let data=JSON.parse(ev.target.result);
+    document.getElementById("tierListTitle").innerText=data.title||"My Tier List";
+    document.querySelectorAll(".tier-container").forEach((container,idx)=>{
+      let tdata=data.tiers?.[idx]; if(!tdata) return;
+      let tier=container.querySelector(".tier"),label=container.querySelector(".label");
+      tier.innerHTML=""; label.childNodes[0].textContent=tdata.name||label.childNodes[0].textContent; label.style.background=tdata.color||label.style.background;
+      (tdata.imgs||[]).forEach(src=>tier.appendChild(createImageWrapper(src)));
+    });
+    document.getElementById("unranked").innerHTML="";
+    (data.unranked||[]).forEach(src=>addToUnranked(src));
+  }; reader.readAsText(file);
+});
 
-/* ---------- Selection ---------- */
-function selectWrapper(el){
-  if(selectedWrapper) selectedWrapper.classList.remove("selected");
-  selectedWrapper = el;
-  if(el) el.classList.add("selected");
+// ---------- ISLAND PANEL ----------
+const island=document.getElementById("island");const header=document.getElementById("islandHeader");
+header.addEventListener("click",()=>island.classList.toggle("expanded"));
+document.getElementById("addCatIcon").addEventListener("click",()=>{document.getElementById("addCategoryPanel").style.display="flex"; document.getElementById("creditsPanel").style.display="none"; island.classList.add("expanded");});
+document.getElementById("creditsIcon").addEventListener("click",()=>{document.getElementById("creditsPanel").style.display="block"; document.getElementById("addCategoryPanel").style.display="none"; island.classList.add("expanded");});
+document.getElementById("createCategoryBtn").addEventListener("click",()=>{
+  const name=document.getElementById("newCategoryName").value||"New Tier";
+  createTier(Date.now(),name); document.getElementById("newCategoryName").value="";
+});
+
+// ---------- EDIT MODE TOGGLE ----------
+const editToggle=document.getElementById("editModeToggle");
+editToggle.addEventListener("click",()=>{
+  editMode=!editMode;
+  document.querySelectorAll(".label").forEach(updateLabelDisplay);
+});
+
+function updateLabelDisplay(label){
+  if(editMode){ label.querySelector(".remove-cat").style.display="flex"; label.querySelector(".color-picker").style.display="inline-block";}
+  else{ label.querySelector(".remove-cat").style.display="none"; label.querySelector(".color-picker").style.display="none";}
 }
+</script>
 
-/* ---------- Upload handling + cropping queue ---------- */
-const imageInput = document.getElementById("imageUpload");
-imageInput.addEventListener("change", e=>{
-  const files = Array.from(e.target.files || []);
-  files.forEach(file=>{
-    if(!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const src = ev.target.result;
-      // check aspect ratio
-      const img = new Image();
-      img.onload = ()=>{
-        const w = img.width, h = img.height;
-        if(Math.abs(w-h)/Math.max(w,h) > 0.2){
-          cropQueue.push(src);
-          updateCropQueueUI();
-          if(!cropping) startCropQueue();
-        } else {
-          document.getElementById("unranked").appendChild(createImageWrapper(src));
-          persistSaveDebounced();
-        }
-      };
-      img.src = src;
-    };
-    reader.readAsDataURL(file);
-  });
-  // reset input so same files can be re-selected later
-  imageInput.value = "";
-});
+<footer style="position:fixed;right:10px;bottom:10px;background:rgba(100,100,100,.55);color:#fff;font-size:12px;padding:4px 8px;border-radius:8px;opacity:.85;z-index:100000;">Version 1.9 — Edit Mode + Island Fixes + Removable Categories</footer>
 
-/* cropping modal with pan support (pointer events) */
-const cropOverlay = document.getElementById("cropOverlay");
-const cropImg = document.getElementById("cropImg");
-const cropArea = document.getElementById("cropArea");
-let cropState = {imgNaturalW:0,imgNaturalH:0,displayW:0,displayH:0,offsetX:0,offsetY:0,pointerId:null, startX:0, startY:0, startOffsetX:0, startOffsetY:0, squareSize:0};
-
-function updateCropQueueUI(){
-  document.getElementById("cropQueueCount").textContent = cropQueue.length;
-  document.getElementById("expandCropQueueBtn").style.display = cropQueue.length ? "inline-block" : "none";
-}
-
-function startCropQueue(){
-  if(cropQueue.length === 0){ cropping = false; updateCropQueueUI(); return; }
-  cropping = true;
-  updateCropQueueUI();
-  const src = cropQueue.shift();
-  showCropModal(src);
-}
-
-function showCropModal(src){
-  cropOverlay.style.display = "flex";
-  cropImg.src = src;
-  // reset style
-  cropImg.style.transform = "";
-  cropImg.style.left = "0px";
-  cropImg.style.top = "0px";
-  cropImg.style.width = "auto";
-  cropImg.style.height = "auto";
-  cropImg.onload = ()=>{
-    const areaRect = cropArea.getBoundingClientRect();
-    const sq = Math.min(areaRect.width, areaRect.height);
-    cropState.squareSize = sq;
-    const natW = cropImg.naturalWidth, natH = cropImg.naturalHeight;
-    cropState.imgNaturalW = natW; cropState.imgNaturalH = natH;
-    // make the image fill the square on the smaller side so it can be panned
-    // scale image so smaller dimension >= sq
-    const scale = Math.max(sq / natW, sq / natH);
-    const dispW = Math.round(natW * scale);
-    const dispH = Math.round(natH * scale);
-    cropImg.style.width = dispW + "px";
-    cropImg.style.height = dispH + "px";
-    // center
-    const left = Math.round((sq - dispW)/2);
-    const top = Math.round((sq - dispH)/2);
-    cropImg.style.left = left + "px";
-    cropImg.style.top = top + "px";
-    cropState.displayW = dispW; cropState.displayH = dispH;
-    cropState.offsetX = left; cropState.offsetY = top;
-  };
-}
-
-// pointer/touch pan support
-cropArea.addEventListener("pointerdown", ev=>{
-  ev.preventDefault();
-  cropArea.setPointerCapture(ev.pointerId);
-  cropState.pointerId = ev.pointerId;
-  cropState.startX = ev.clientX; cropState.startY = ev.clientY;
-  cropState.startOffsetX = cropState.offsetX; cropState.startOffsetY = cropState.offsetY;
-});
-cropArea.addEventListener("pointermove", ev=>{
-  if(cropState.pointerId !== ev.pointerId) return;
-  ev.preventDefault();
-  const dx = ev.clientX - cropState.startX;
-  const dy = ev.clientY - cropState.startY;
-  let nx = cropState.startOffsetX + dx;
-  let ny = cropState.startOffsetY + dy;
-  // bounds: image must cover square area (no blank)
-  const sq = cropState.squareSize;
-  const maxLeft = 0;
-  const minLeft = sq - cropState.displayW;
-  const maxTop = 0;
-  const minTop = sq - cropState.displayH;
-  if(nx > maxLeft) nx = maxLeft;
-  if(nx < minLeft) nx = minLeft;
-  if(ny > maxTop) ny = maxTop;
-  if(ny < minTop) ny = minTop;
-  cropState.offsetX = nx; cropState.offsetY = ny;
-  cropImg.style.left = nx + "px";
-  cropImg.style.top = ny + "px";
-});
-cropArea.addEventListener("pointerup", ev=>{
-  if(cropState.pointerId === ev.pointerId){ cropArea.releasePointerCapture(ev.pointerId); cropState.pointerId = null; }
-});
-cropArea.addEventListener("pointercancel", ev=>{
-  if(cropState.pointerId === ev.pointerId){ cropArea.releasePointerCapture(ev.pointerId); cropState.pointerId = null; }
-});
-
-// crop OK
-document.getElementById("cropOk").addEventListener("click", ()=>{
-  // draw visible square to canvas
-  const canvas = document.createElement("canvas");
-  const sq = cropState.squareSize;
-  canvas.width = 512; canvas.height = 512; // normalized output size
-  const ctx = canvas.getContext("2d");
-  // compute source coords in natural image space
-  const scaleX = cropState.imgNaturalW / cropState.displayW;
-  const scaleY = cropState.imgNaturalH / cropState.displayH;
-  const srcX = Math.max(0, Math.round((0 - cropState.offsetX) * scaleX));
-  const srcY = Math.max(0, Math.round((0 - cropState.offsetY) * scaleY));
-  const srcW = Math.round(sq * scaleX);
-  const srcH = Math.round(sq * scaleY);
-  const tmpImg = new Image();
-  tmpImg.onload = ()=>{
-    ctx.drawImage(tmpImg, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL("image/png");
-    document.getElementById("unranked").appendChild(createImageWrapper(dataUrl));
-    persistSaveDebounced();
-  };
-  tmpImg.src = cropImg.src;
-  closeCropModal();
-  // continue queue
-  if(cropQueue.length > 0) startCropQueue(); else { cropping = false; updateCropQueueUI(); }
-});
-document.getElementById("cropCancel").addEventListener("click", ()=>{
-  closeCropModal();
-  if(cropQueue.length > 0) startCropQueue(); else { cropping = false; updateCropQueueUI(); }
-});
-function closeCropModal(){ cropOverlay.style.display = "none"; }
-
-/* ---------- Add text item (with blurred tinted bg) ---------- */
-document.getElementById("addTextIcon").addEventListener("click", ()=>{
-  // if island collapsed, expand
-  document.getElementById("island").classList.add("expanded");
-  const txt = prompt("Enter text:");
-  if(!txt) return;
-  // pick color from currently selected category if any
-  let col = "#777777";
-  if(selectedWrapper){
-    const tierContainer = selectedWrapper.closest(".tier-container");
-    if(tierContainer) col = tierContainer.querySelector(".label").style.backg
+</body>
+</html>
